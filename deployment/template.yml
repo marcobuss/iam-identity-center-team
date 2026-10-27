@@ -100,6 +100,51 @@ Resources:
                 Action:
                   - cognito-identity:ListTagsForResource
                 Resource: !Sub "arn:${AWS::Partition}:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/*"
+              - Sid: CreateStepFunctionLogEncryptionKey
+                Effect: Allow
+                Action:
+                  - kms:CreateKey
+                Resource: "*"
+              - Sid: ManageStepFunctionLogEncryptionKeys
+                Effect: Allow
+                Action:
+                  - kms:DescribeKey
+                  - kms:EnableKeyRotation
+                  - kms:GetKeyPolicy
+                  - kms:ListResourceTags
+                  - kms:PutKeyPolicy
+                  - kms:ScheduleKeyDeletion
+                  - kms:TagResource
+                  - kms:UntagResource
+                Resource: !Sub "arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:key/*"
+              - Sid: DescribeCloudWatchLogGroups
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                Resource: "*"
+              - Sid: ManageNamespacedStepFunctionLogGroup
+                Effect: Allow
+                Action:
+                  - logs:AssociateKmsKey
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DeleteRetentionPolicy
+                  - logs:ListTagsForResource
+                  - logs:PutRetentionPolicy
+                  - logs:TagResource
+                  - logs:UntagResource
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/stepfunction/team-step-function/${DeploymentNamespace}*"
+              - Sid: ManageNamespacedTeamStateMachines
+                Effect: Allow
+                Action:
+                  - states:CreateStateMachine
+                  - states:DeleteStateMachine
+                  - states:DescribeStateMachine
+                  - states:ListTagsForResource
+                  - states:TagResource
+                  - states:UntagResource
+                  - states:UpdateStateMachine
+                Resource: !Sub "arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:TEAM-*-SM-${DeploymentNamespace}"
               - Sid: ManageNamespacedTeamNotificationTopic
                 Effect: Allow
                 Action:
