@@ -43,6 +43,7 @@ else
   : "${ORG_MANAGEMENT_PROFILE:?ORG_MANAGEMENT_PROFILE is required}"
   DEPLOYMENT_PROFILE="${ORG_MANAGEMENT_PROFILE}"
 fi
+export AWS_PROFILE="${DEPLOYMENT_PROFILE}"
 
 if [[ -z "${SECRET_NAME}" ]]; then
   if ! aws codecommit get-repository \

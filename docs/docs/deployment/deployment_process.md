@@ -82,7 +82,7 @@ Review the reported delegated-administrator and telemetry status. Applying the s
 ./init.sh --apply
 ```
 
-It configures Account Management, IAM Identity Center, and CloudWatch delegated administration. It does not change CloudTrail Lake delegated administration used by an older parallel deployment.
+It configures Account Management, IAM Identity Center, and CloudWatch delegated administration. Before starting telemetry evaluation, it verifies the AWS Config service-linked role required by CloudWatch telemetry configuration. It then waits for the service to report `RUNNING`; do not deploy the audit stack while the status is `NOT_STARTED`, `STARTING`, or a failed state. The script does not change CloudTrail Lake delegated administration used by an older parallel deployment.
 
 ## Review and deploy the independent audit stack
 
