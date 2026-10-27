@@ -81,7 +81,7 @@
                   ],
                   "Resource": {
                     "Fn::Sub": [
-                      "arn:aws:logs:${region}:${account}:log-group:/aws/lambda/${lambda}:log-stream:*",
+                      "arn:${region}:${account}:log-group:/aws/lambda/${lambda}:log-stream:*",
                       {
                         "region": {
                           "Ref": "AWS::Region"
@@ -93,8 +93,7 @@
                           "Fn::Join": [
                             "",
                             [
-                              "team-amplify-bucket-lambda",
-                              "-",
+                              "team-amplify-bucket-lambda-",
                               {
                                 "Ref": "env"
                               }
@@ -104,23 +103,6 @@
                       }
                     ]
                   }
-                },
-                {
-                  "Action": [
-                    "s3:ListAllMyBuckets",
-                    "s3:PutBucketPolicy",
-                    "s3:PutBucketVersioning"
-                  ],
-                  "Effect": "Allow",
-                  "Resource": "*"
-                },
-                {
-                  "Action": [
-                    "amplify:GetBackendEnvironment",
-                    "amplify:ListApps"
-                  ],
-                  "Effect": "Allow",
-                  "Resource": "*"
                 }
               ]
             }
@@ -143,13 +125,19 @@
           "Fn::Join": [
             "",
             [
-              "team-amplify-bucket-lambda",
-              "-",
+              "team-amplify-bucket-lambda-",
               {
                 "Ref": "env"
               }
             ]
           ]
+        },
+        "Environment": {
+          "Variables": {
+            "DEPLOYMENT_NAMESPACE": {
+              "Ref": "env"
+            }
+          }
         },
         "Role": {
           "Fn::GetAtt": [
@@ -158,10 +146,10 @@
           ]
         },
         "Handler": "index.handler",
-        "Description": "Put secure transport bucket policy and enable versioning on amplify bucket",
+        "Description": "Enable versioning on the namespaced Amplify deployment bucket",
         "Timeout": 30,
         "Code": {
-          "ZipFile": "import boto3\nimport json\nimport cfnresponse\nfrom botocore.config import Config\n\n\ndef get_boto3_config() -> Config:\n    return Config(\n        user_agent_extra=\"team-idc\"\n    )\n\n\namplify = boto3.client('amplify')\ns3 = boto3.client('s3', config=get_boto3_config())\n\n\ndef handler(event, context):\n    response_data = {}\n\n    # Handle DELETE events - nothing to clean up\n    if event.get('RequestType') == 'Delete':\n        cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Delete successful'})\n        return\n\n    response_data['Data'] = \"Failure\"\n\n    response = amplify.list_apps()\n    app_id = None\n    \n    for app in response[\"apps\"]:\n        if app[\"name\"] == \"TEAM-IDC-APP\":\n            app_id = app['appId']\n            break\n\n    if app_id:\n        backend_env = amplify.get_backend_environment(\n            appId=app_id, \n            environmentName='main'\n        )\n        stack_name = backend_env['backendEnvironment']['stackName']\n\n        amplify_bucket = f\"{stack_name}-deployment\"\n        print(f\"Amplify bucket name is: {amplify_bucket}\")\n        \n        s3.put_bucket_versioning(\n            Bucket=amplify_bucket,\n            VersioningConfiguration={\n                'Status': 'Enabled'\n            }\n        )\n\n        response_data['Data'] = \"Success\"\n        cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)\n    else:\n        cfnresponse.send(event, context, cfnresponse.FAILED, response_data)\n"
+          "ZipFile": "import boto3\nimport cfnresponse\nimport logging\nimport os\nfrom botocore.config import Config\n\n\nlogger = logging.getLogger()\nlogger.setLevel(logging.INFO)\n\n\ndef get_boto3_config() -> Config:\n    return Config(user_agent_extra=\"team-idc\")\n\n\namplify = boto3.client('amplify')\ns3 = boto3.client('s3', config=get_boto3_config())\n\n\ndef handler(event, context):\n    if event.get('RequestType') == 'Delete':\n        cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Delete successful'})\n        return\n\n    namespace = os.environ['DEPLOYMENT_NAMESPACE']\n    app_name = f'TEAM-IDC-APP-{namespace}'\n    app_id = next((app['appId'] for app in amplify.list_apps()['apps'] if app['name'] == app_name), None)\n\n    if not app_id:\n        logger.error('Namespaced Amplify app was not found')\n        cfnresponse.send(event, context, cfnresponse.FAILED, {'Data': 'Amplify app not found'})\n        return\n\n    backend_env = amplify.get_backend_environment(appId=app_id, environmentName=namespace)\n    stack_name = backend_env['backendEnvironment']['stackName']\n    deployment_bucket = f'{stack_name}-deployment'\n\n    s3.put_bucket_versioning(\n        Bucket=deployment_bucket,\n        VersioningConfiguration={'Status': 'Enabled'}\n    )\n\n    logger.info('Enabled versioning on the namespaced Amplify deployment bucket')\n    cfnresponse.send(event, context, cfnresponse.SUCCESS, {'Data': 'Success'})\n"
         }
       }
     },
@@ -174,7 +162,7 @@
             "Arn"
           ]
         },
-        "version": "0.1"
+        "version": "0.2"
       }
     }
   }
