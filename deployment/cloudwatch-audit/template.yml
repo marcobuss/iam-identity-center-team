@@ -68,7 +68,7 @@ Resources:
           Scope: !Sub "OrganizationId = '${OrganizationId}'"
           SourceLogsConfiguration:
             LogGroupSelectionCriteria: "LogGroupName LIKE 'aws/cloudtrail/%'"
-            EncryptedLogGroupStrategy: SKIP
+            EncryptedLogGroupStrategy: ALLOW
         Destination:
           Account: !Ref AWS::AccountId
           Region: !Ref AWS::Region
