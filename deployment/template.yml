@@ -90,6 +90,11 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
+              - Sid: ReadNamespacedIdentityPoolTags
+                Effect: Allow
+                Action:
+                  - cognito-identity:ListTagsForResource
+                Resource: !Sub "arn:${AWS::Partition}:cognito-identity:${AWS::Region}:${AWS::AccountId}:identitypool/*"
               - Sid: ManageNamespacedTeamNotificationTopic
                 Effect: Allow
                 Action:
