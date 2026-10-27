@@ -9,9 +9,7 @@ parent: Solution deployment
 {: .no_toc}
 
 <details open markdown="block">
-  <summary>
-    Table of contents
-  </summary>
+  <summary>Table of contents</summary>
   {: .text-delta }
 - TOC
 {:toc}
@@ -19,149 +17,144 @@ parent: Solution deployment
 
 ---
 
-## Clone TEAM repo
-To clone the TEAM amplify fullstack project, execute the following command inside an empty directory
+## Deployment model
+
+This release is for fresh CloudWatch-backed installations. Do not deploy it over an existing TEAM stack that owns a CloudTrail Lake event data store. During a pilot, leave the existing deployment untouched and create a namespaced TEAM application with a separate Amplify URL and IAM Identity Center SAML application.
+
+Deployment has three independently controlled stages:
+
+1. Management-account bootstrap for CloudWatch trusted access and delegated administration.
+2. Independent audit-stack deployment in the TEAM delegated-administrator account.
+3. Namespaced Amplify application deployment in the TEAM account.
+
+No script deletes, disables, or imports an existing CloudTrail Lake event data store.
+
+## Clone the repository
 
 ```sh
 git clone https://github.com/aws-samples/iam-identity-center-team.git
-```
-
-This creates a directory named **iam-identity-center-team** in your current directory.
-
----
-
-## Update deployment parameters
-
-Create a new file named **parameters.sh** in the **deployment** directory. Copy the contents of the file **parameters-template.sh** to the new file. 
-
-```sh
-cd deployment
+cd iam-identity-center-team/deployment
 cp -n parameters-template.sh parameters.sh
 ```
 
+`deployment/parameters.sh` is ignored by Git and must not contain credentials. It contains profile names and deployment settings only.
 
-Update the parameters in the **parameters.sh** file as follows:
+## Configure parameters
 
-**Parameters**
+Required application values:
 
-**Required:**
-- **IDC_LOGIN_URL** - AWS IAM Identity Center Login URL
-- **REGION** - AWS region where the application will be deployed.
-    > This must be the same region AWS IAM Identity Center is deployed in
-    {: .important}
-- **TEAM_ACCOUNT** - ID of AWS Account into which TEAM application will be deployed
-- **ORG_MASTER_PROFILE** - Named profile for Organisation master account
-- **TEAM_ACCOUNT_PROFILE** - Named profile for TEAM Application deployment Account
-- **TEAM_ADMIN_GROUP** - Name of IAM Identity Center group for TEAM administrators
-- **TEAM_AUDITOR_GROUP** - Name of IAM Identity Center group for TEAM auditors
-- **CLOUDTRAIL_AUDIT_LOGS** - ARN of organization CloudTrail Lake event datastore
-- **SECRET_NAME** - Name of the Secret stored in AWS Secret Manager
-> When using Github as the external repository ensure you use Tokens (classic) (https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#personal-access-tokens-classic) instead of Fine-grained tokens
+- `IDC_LOGIN_URL` — IAM Identity Center portal URL.
+- `REGION` — TEAM and central audit Region. This must match the IAM Identity Center Region.
+- `TEAM_ACCOUNT` — Dedicated TEAM delegated-administrator account.
+- `ORG_MANAGEMENT_PROFILE` — Local AWS CLI profile for the Organizations management account.
+- `TEAM_ACCOUNT_PROFILE` — Local AWS CLI profile for the TEAM account.
+- `TEAM_ADMIN_GROUP` — IAM Identity Center group used for TEAM administrators.
+- `TEAM_AUDITOR_GROUP` — IAM Identity Center group used for TEAM auditors.
+- `TEAM_DEPLOYMENT_NAMESPACE` — Unique suffix for the parallel stack, repository, branch, Amplify app, and backend environment. The default is `cloudwatch`.
 
+Required audit-stack values:
 
-**Optional:**
-- **TAGS** - Tags that should be propagated to nested stacks and underlying resources
-- **UI_DOMAIN** - Custom domain for Amplify hosted frontend application (should only be included if you have setup a custom domain for the frontend application)
-- **CACHE_TTL** - Cache time-to-live in seconds for organizational unit (OU) account lists (default: 604800 = 1 week). Cached entries automatically expire after this duration. Consider increasing this value (e.g., 2592000 = 30 days) for organizations with infrequent account changes. Administrators can also manually invalidate specific OU cache entries or disable caching entirely via the Settings page.
+- `ORGANIZATION_ID` — AWS Organizations ID.
+- `AUDIT_SOURCE_REGIONS` — Comma-separated Regions to collect and centralize.
 
-For example:
+Optional values:
 
-```sh
-IDC_LOGIN_URL=https://d-12345678.awsapps.com/start
-REGION=us-east-1
-TEAM_ACCOUNT=123456789101  
-ORG_MASTER_PROFILE=OrgMAsterProfileName
-TEAM_ACCOUNT_PROFILE=TeamAccountProfileName
-TEAM_ADMIN_GROUP="team_admin_group_name"
-TEAM_AUDITOR_GROUP="team_auditor_group_name"
-TAGS="tag1=value1 tag2=value2"
-CLOUDTRAIL_AUDIT_LOGS=arn:aws:cloudtrail:us-east-1:123456789101:eventdatastore/e646f20d-7959-4682-be84-6c5b8a37cf15
-UI_DOMAIN=portal.teamtest.online
-SECRET_NAME=TEAM-IDC-APP
-CACHE_TTL=604800
-```
+- `AUDIT_SOURCE_RETENTION_DAYS` — Source log retention; default `1`.
+- `AUDIT_CENTRAL_RETENTION_DAYS` — Central log retention; default `7`.
+- `AUDIT_CENTRAL_KMS_KEY_ARN` — Existing KMS key for central-log encryption. Empty uses AWS-owned encryption.
+- `AUDIT_STACK_NAME` — Independent audit stack name.
+- `TAGS` — Space-separated CloudFormation tags in `key=value` form.
+- `UI_DOMAIN` — Separate custom domain for the pilot application.
+- `CACHE_TTL` — Organizational-unit account cache TTL; default `604800` seconds.
+- `SECRET_NAME` — Secrets Manager secret for an external repository. The secret contains repository URL and token values.
 
----
+## Inspect and apply management-account bootstrap
 
-## Run Initialisation Script
-The **init.sh** bash script in the **deployment** folder configures the following prerequisites required for deploying the TEAM application:
-
-- Configures the **TEAM_ACCOUNT** as a delegated admin for account management
-- Configures the **TEAM_ACCOUNT** as a delegated admin for cloudtrail management
-- Configures the **TEAM_ACCOUNT** as a delegated admin for AWS IAM Identity Center Management
-  > Ensure that the named profile for the **Organisation Management account** has sufficient permissions before executing the **init.sh** script
-  {: .note}
-
-Execute the following command in the root directory to deploy the script
+The bootstrap script is read-only unless `--apply` is provided:
 
 ```sh
-cd deployment
 ./init.sh
 ```
 
-If the init.sh script is deployed successfully, the output should be similar as shown below
-
-```
-$ 123456789101 configured as delegated Admin for AWS Account Manager
-$ 123456789101 configured as delegated Admin for cloudtrail
-$ 123456789101 configured as delegated Admin for IAM Identity Center
-```
-
----
-
-## Run Deployment Script
-The **deploy.sh** bash script in the **deployment** folder performs the following actions within the **TEAM_ACCOUNT** :
-
-- Creates a CodeCommit repository and copies the TEAM application directory content to the repository.
-- Deploys a cloudformation template that creates an amplify hosted application and CI/CD pipeline for deploying the TEAM application.
-
-> Ensure that the named profile for the **TEAM Deployment account** has sufficient permissions before executing the **deploy.sh** script
-{: .note}
-
-Execute the following command in the root directory to deploy the script
+Review the reported delegated-administrator and telemetry status. Applying the script changes organization-level configuration and requires explicit authorization:
 
 ```sh
-cd deployment
-./deploy.sh
+./init.sh --apply
 ```
 
-Once the deployment script has completed execution and the cloudformation stack has been created successfully, go to the AWS Amplify console to monitor the status of the TEAM application deployment.
+It configures Account Management, IAM Identity Center, and CloudWatch delegated administration. It does not change CloudTrail Lake delegated administration used by an older parallel deployment.
 
-> It takes about 20 mins to complete the build and deployment of the Amplify application stack
-{: .note}
+## Review and deploy the independent audit stack
 
-## Custom Domain Registration
-> This step is optional and required only if you have included a **UI_DOMAIN** parameter and intend to use a custom domain for your TEAM deployment instead of the default amplify generated domain name. 
+Create an unexecuted CloudFormation change set:
 
-Go to Amplify console: AWS AMPLIFY → All Apps → TEAM-IDC-APP → Domain Management → Add domain.
+```sh
+./cloudwatch-audit/deploy.sh
+```
 
-![custom](../assets/images/custom.png)
+Review the change set, source Regions, destination account, retention, and optional KMS configuration. Apply it only to the approved non-production target:
 
-Follow instructions in Amplify documentation for more details on [setting up custom domains](https://docs.aws.amazon.com/amplify/latest/userguide/custom-domains.html)
+```sh
+./cloudwatch-audit/deploy.sh --apply
+```
 
+The stack creates:
 
-## Verify app deployment
-Go to Amplify console: **AWS Amplify -> All apps -> TEAM-IDC-APP -> Hosting environments**. On the **Hosting environments** tab, click on the application URL to confirm that it was deployed successfully and you can access the TEAM application landing page as shown in the video below:
+- An organization CloudTrail management-event telemetry rule.
+- An organization CloudWatch Logs centralization rule.
+- The private `/aws/team/cloudtrail-management` destination log group.
+- `/team/audit/log-group-arn` in Systems Manager Parameter Store.
+- `/team/audit/region` in Systems Manager Parameter Store.
 
-<video width="750" height="420" frameborder="0" allowfullscreen controls>
-<source src="https://d3f99z5n3ls8r1.cloudfront.net/videos/deployment/successful_app_deployment.mov" type="video/mp4">
-</video>
+The central log group has deletion protection and retain policies. The application stack does not own it.
 
+CloudWatch telemetry discovery can take time. Wait until the telemetry and centralization rules report healthy before testing session activity.
 
-### 🚀 Next Step: [Configure TEAM Application]({% link docs/deployment/configuration/index.md %})
-{: .no_toc}
+## Deploy the namespaced application
 
-## Deploying TEAM into management account
-> We strongly recommend and encourage deploying TEAM into a **delegated admin account** (**not management account**) as per [AWS best practice](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use). If you have a valid use case for deploying in the management account, please proceed with caution and consider the necessity of stringent management account access controls.
-{: .warning}
+`deploy.sh` requires an explicit apply flag:
 
-To deploy TEAM into management account:
+```sh
+./deploy.sh --apply
+```
 
-1. Instead of using **parameters-template.sh** file, use the provided **parameters-mgmt-template.sh** as a template for your **paramaters.sh** file. This file omits the following parameters:
-   - **TEAM_ACCOUNT**
-   - **TEAM_ACCOUNT_PROFILE**
+For the default `cloudwatch` namespace, the script creates distinct names such as:
 
-    and uses **ORG_MASTER_PROFILE** to deploy the solution.
+- CloudFormation stack: `TEAM-IDC-APP-cloudwatch`
+- CodeCommit repository: `team-idc-app-cloudwatch`
+- Branch/backend environment: `cloudwatch`
+- Amplify application: `TEAM-IDC-APP-cloudwatch`
 
-2. Do **not** run the initialisation script **init.sh**. You can proceed straight to running the deployment script **deploy.sh**.
+The application template resolves the fixed SSM audit parameters during stack deployment and passes the resolved values into the Amplify build. Updating an SSM value does not update an already deployed Lambda until the application stack is updated.
 
+If an external repository is configured, create and push the namespaced branch before deployment.
+
+## Configure pilot access
+
+Create a separate IAM Identity Center custom SAML application for the pilot Amplify URL. Assign only the approved pilot group. Do not redirect the existing Lake-based application during this stage.
+
+Before admitting pilot users, verify that:
+
+- Anonymous AppSync operations are denied.
+- An unrelated authenticated user cannot start or retrieve another request's query.
+- Only the requester, assigned approvers, and Auditors can inspect activity.
+
+## Verify deployment
+
+1. Confirm the audit stack and SSM parameters are healthy.
+2. Confirm management events from every configured Region reach `/aws/team/cloudtrail-management`.
+3. Open the namespaced Amplify URL through the pilot SAML application.
+4. Run a controlled elevated-access request.
+5. Verify running, complete, empty, and failed activity states.
+6. Verify result paging and complete CSV download.
+7. Confirm the old Lake-backed application remains unchanged and available.
+
+## Updating this release
+
+`update.sh` updates only the namespaced CloudWatch deployment:
+
+```sh
+./update.sh --apply
+```
+
+Never point it at an existing Lake-backed stack. In-place migration and historical data import are intentionally deferred to a later release.

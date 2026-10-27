@@ -1,35 +1,22 @@
-# Copyright 2023 Amazon Web Services, Inc
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# 
-#     http://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 #!/usr/bin/env bash
+# Prints credentials for a machine-auth client in the namespaced TEAM pilot.
+set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/parameters.sh"
 
-. "./parameters.sh"
+NAMESPACE="${TEAM_DEPLOYMENT_NAMESPACE:-cloudwatch}"
+APP_NAME="TEAM-IDC-APP-${NAMESPACE}"
+PROFILE="${TEAM_ACCOUNT_PROFILE:-${ORG_MANAGEMENT_PROFILE:?deployment profile is required}}"
+user_pool_id="$(aws cognito-idp list-user-pools --profile "${PROFILE}" --region "${REGION}" --max-results 60 --query "UserPools[?contains(Name, '${NAMESPACE}') && contains(Name, 'team06dbb7fc')].Id | [0]" --output text)"
+user_pool_domain="$(aws cognito-idp describe-user-pool --profile "${PROFILE}" --region "${REGION}" --user-pool-id "${user_pool_id}" --query 'UserPool.Domain' --output text)"
+client_id="$(aws cognito-idp list-user-pool-clients --profile "${PROFILE}" --region "${REGION}" --user-pool-id "${user_pool_id}" --query "UserPoolClients[?ClientName=='machine_auth'].ClientId | [0]" --output text)"
+client="$(aws cognito-idp describe-user-pool-client --profile "${PROFILE}" --region "${REGION}" --user-pool-id "${user_pool_id}" --client-id "${client_id}" --query 'UserPoolClient' --output json)"
+graph_endpoint="$(aws appsync list-graphql-apis --profile "${PROFILE}" --region "${REGION}" --query "graphqlApis[?contains(name, 'team-${NAMESPACE}')].uris.GRAPHQL | [0]" --output text)"
 
-if [ -z "$TEAM_ACCOUNT" ]; then 
-  export AWS_PROFILE=$ORG_MASTER_PROFILE
-else 
-  export AWS_PROFILE=$TEAM_ACCOUNT_PROFILE
-fi
-
-cognitoUserpoolId=$(aws cognito-idp list-user-pools --region $REGION --max-results 10 --output json | jq -r '.UserPools[] | select(.Name | contains("team06dbb7fc")) | .Id')
-cognitoUserpoolDomain=$(aws cognito-idp describe-user-pool --region $REGION --user-pool-id $cognitoUserpoolId --output json | jq -r '.UserPool.Domain')
-cognitoUserpoolClientId=$(aws cognito-idp list-user-pool-clients --region $REGION --user-pool-id $cognitoUserpoolId --output json | jq -r '.UserPoolClients[] | select(.ClientName | contains("machine_auth")) | .ClientId')
-cognitoUserpoolClient=$(aws cognito-idp describe-user-pool-client --region $REGION --user-pool-id $cognitoUserpoolId --client-id $cognitoUserpoolClientId --output json | jq -r '.UserPoolClient')
-graphEndpoint=$(aws appsync list-graphql-apis --region $REGION --output json | jq -r '.graphqlApis[] | select(.name | contains("team-main")) | .uris.GRAPHQL')
-
-echo "token_endpoint=\"https://$cognitoUserpoolDomain.auth.$REGION.amazoncognito.com/oauth2/token\""
-echo "graph_endpoint=\"$graphEndpoint\""
-echo "client_id=$(echo $cognitoUserpoolClient | jq .ClientId)"
-echo "client_secret=$(echo $cognitoUserpoolClient | jq .ClientSecret)"
+echo "token_endpoint=https://${user_pool_domain}.auth.${REGION}.amazoncognito.com/oauth2/token"
+echo "graph_endpoint=${graph_endpoint}"
+echo "client_id=$(jq -r '.ClientId' <<< "${client}")"
+echo "client_secret=$(jq -r '.ClientSecret' <<< "${client}")"
+echo "application=${APP_NAME}"

@@ -92,11 +92,6 @@
       "providerPlugin": "awscloudformation",
       "service": "customCloudformation"
     },
-    "cloudtrailLake": {
-      "dependsOn": [],
-      "providerPlugin": "awscloudformation",
-      "service": "customCloudformation"
-    },
     "s3bucketSecurity": {
       "dependsOn": [],
       "providerPlugin": "awscloudformation",
@@ -276,6 +271,20 @@
       "providerPlugin": "awscloudformation",
       "service": "Lambda"
     },
+    "teamstartLogs": {
+      "build": true,
+      "dependsOn": [
+        {
+          "attributes": [
+            "GraphQLAPIIdOutput"
+          ],
+          "category": "api",
+          "resourceName": "team"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
     "teamgetAccounts": {
       "build": true,
       "providerPlugin": "awscloudformation",
@@ -353,13 +362,6 @@
           ],
           "category": "api",
           "resourceName": "team"
-        },
-        {
-          "attributes": [
-            "EventDataStoreOutput"
-          ],
-          "category": "custom",
-          "resourceName": "cloudtrailLake"
         }
       ],
       "providerPlugin": "awscloudformation",
@@ -437,10 +439,10 @@
       "dependsOn": [
         {
           "attributes": [
-            "EventDataStoreOutput"
+            "GraphQLAPIIdOutput"
           ],
-          "category": "custom",
-          "resourceName": "cloudtrailLake"
+          "category": "api",
+          "resourceName": "team"
         }
       ],
       "providerPlugin": "awscloudformation",
@@ -628,6 +630,22 @@
         {
           "category": "function",
           "resourceName": "teamgetLogs"
+        }
+      ]
+    },
+    "AMPLIFY_function_teamstartLogs_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "teamstartLogs"
+        }
+      ]
+    },
+    "AMPLIFY_function_teamstartLogs_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "teamstartLogs"
         }
       ]
     },

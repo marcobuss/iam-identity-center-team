@@ -4,10 +4,19 @@ Parameters:
   Login:
     Type: String
     Description: IAM IDC Login URL
-  CloudTrailAuditLogs:
-    Type: "String"
-    AllowedPattern: "(read_write|read|write|none|arn.*)"
-    Description: Which events should be logged on the TEAM Application Cloudtrail Lake EventDataStore.  Acceptable values are "read","write","read_write", and "none".  You may also enter the arn of an existing Cloudtrail Lake EDS.
+  DeploymentNamespace:
+    Type: String
+    Description: Unique suffix for the parallel CloudWatch TEAM deployment
+    Default: cloudwatch
+    AllowedPattern: '^[a-z][a-z0-9]{1,9}$'
+  AuditLogGroupArn:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: SSM parameter containing the central TEAM audit log group ARN
+    Default: /team/audit/log-group-arn
+  AuditRegion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Description: SSM parameter containing the central TEAM audit Region
+    Default: /team/audit/region
   teamAdminGroup:
     Type: String
     Description: TEAM application Admin group
@@ -42,7 +51,6 @@ Parameters:
     Default: 604800
 
 Conditions:
-  IsEmptyCloudTrailAuditLogs: !Equals [!Ref CloudTrailAuditLogs, ""]
   UseExternalRepo: !Equals [!Ref customRepository, 'Yes']
 
 Resources:
@@ -51,7 +59,7 @@ Resources:
     Properties:
       ServiceToken: !GetAtt 'TriggerBuildLambda.Arn'
       appId: !GetAtt AmplifyApp.AppId
-      branchName: main
+      branchName: !Ref DeploymentNamespace
       branch: !GetAtt AmplifyBranch.Arn
 
   AmplifyRole:
@@ -76,17 +84,17 @@ Resources:
                 aws:SourceAccount: !Ref AWS::AccountId
       Path: /
       ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/AdministratorAccess" 
+        - "arn:aws:iam::aws:policy/AdministratorAccess-Amplify"
 
   AmplifyApp:
     Type: "AWS::Amplify::App"
     Properties:
-      Name: TEAM-IDC-APP
+      Name: !Sub TEAM-IDC-APP-${DeploymentNamespace}
       Repository: !If
         - UseExternalRepo
         - !Sub >-
           {{resolve:secretsmanager:${customRepositorySecretName}:SecretString:url}}
-        - !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/team-idc-app
+        - !Sub https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/team-idc-app-${DeploymentNamespace}
       AccessToken: !If
         - UseExternalRepo
         - !Sub >-
@@ -152,7 +160,7 @@ Resources:
   AmplifyBranch:
     Type: AWS::Amplify::Branch
     Properties:
-      BranchName: main
+      BranchName: !Ref DeploymentNamespace
       AppId: !GetAtt AmplifyApp.AppId
       EnableAutoBuild: true
       EnvironmentVariables: 
@@ -160,11 +168,12 @@ Resources:
           Value: !Ref Login
         - Name: TEAM_ACCOUNT
           Value: !Ref teamAccount
-        - Name: CLOUDTRAIL_AUDIT_LOGS
-          Value: !If
-            - IsEmptyCloudTrailAuditLogs
-            - "read_write"
-            - !Ref CloudTrailAuditLogs
+        - Name: AUDIT_LOG_GROUP_ARN
+          Value: !Ref AuditLogGroupArn
+        - Name: AUDIT_REGION
+          Value: !Ref AuditRegion
+        - Name: TEAM_DEPLOYMENT_NAMESPACE
+          Value: !Ref DeploymentNamespace
         - Name: TEAM_ADMIN_GROUP
           Value: !Ref teamAdminGroup
         - Name: TEAM_AUDITOR_GROUP
@@ -179,7 +188,7 @@ Resources:
           Value: amplify:al2023
       Tags:
         - Key: Branch
-          Value: main
+          Value: !Ref DeploymentNamespace
   
   TriggerBuildLambda:
     Type: AWS::Lambda::Function

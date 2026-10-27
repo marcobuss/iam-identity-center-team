@@ -27,15 +27,26 @@ parent: Solution deployment
 ### Dedicated TEAM account
 - Dedicated AWS account for deploying TEAM Application. This account will also be configured as delegated admin for:
   - IAM Identity Center
-  - CloudTrail Lake
+  - CloudWatch telemetry administration
   - Account management
 
   [As per AWS best practice](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices_mgmt-acct.html#best-practices_mgmt-use), it is not recommended to deploy resources in the organization management account. Designate a dedicated account for deploying the TEAM solution. We recommend that you do not deploy any other workloads in this account, and carefully manage users with access to this account based on a need-to-do principle.
   {: .note}
 
-### Cloudtrail Lake organization event datastore
-TEAM uses AWS CloudTrail Lake for querying, auditing and logging API activities and actions performed by a user during the period of elevated access.
-Create a Cloudtrail Lake organization event datastore in the dedicated TEAM account that stores all log events for all AWS account in your organization
+### CloudWatch organization audit infrastructure
+TEAM uses CloudTrail service-linked channels and Amazon CloudWatch Logs to collect and query management events generated during elevated-access requests.
+
+Before deploying the application:
+
+- Enable CloudWatch telemetry configuration for the organization from the Organizations management account.
+- Register the dedicated TEAM account as the CloudWatch delegated administrator.
+- Deploy `deployment/cloudwatch-audit/template.yml` independently in the TEAM account and Region.
+- Include every workload Region that TEAM must audit.
+- Verify that the stack publishes `/team/audit/log-group-arn` and `/team/audit/region` in Systems Manager Parameter Store.
+
+The source log groups retain events for one day by default. The centralized TEAM log group retains events for seven days by default. These values are configurable when the independent audit stack is deployed. Collection starts when CloudWatch telemetry enablement and centralization become active; this fresh-install release does not import earlier events.
+
+If `AUDIT_CENTRAL_KMS_KEY_ARN` is configured, the existing key policy must allow the CloudWatch Logs service to encrypt and decrypt this log group, scoped to the organization and CloudWatch Logs encryption context. The audit stack associates the key but does not weaken or replace its policy.
 
 ## AWS Secrets Manager
 TEAM allows you to use external repositories for deploying the solution. 

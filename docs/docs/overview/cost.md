@@ -7,21 +7,41 @@ parent: Solution overview
 
 # Cost considerations
 
-The TEAM solution consists of numerous AWS serverless services. As cost is accrued based on usage of these services there is no consistent cost evaluation that would address all levels of potential usage. In order to get a better understanding of what running this application in your environment may cost, please leverage the [AWS Pricing Calculator](https://calculator.aws).
+TEAM uses serverless AWS services whose cost depends on organization size, request volume, event volume, retention, and query frequency. Use the [AWS Pricing Calculator](https://calculator.aws) with measurements from a representative pilot.
 
 ## AWS services pricing
+
 - [AWS Amplify](https://aws.amazon.com/amplify/pricing/)
-- [AWS Appsync](https://aws.amazon.com/appsync/pricing/)
+- [AWS AppSync](https://aws.amazon.com/appsync/pricing/)
 - [Amazon DynamoDB](https://aws.amazon.com/dynamodb/pricing)
 - [AWS Lambda](https://aws.amazon.com/lambda/pricing)
 - [AWS Step Functions](https://aws.amazon.com/step-functions/pricing)
 - [Amazon Cognito](https://aws.amazon.com/cognito/pricing)
-- [AWS CloudTrail Lake](https://aws.amazon.com/cloudtrail/pricing/)
-- [AWS IAM Identity Center](https://aws.amazon.com/iam/identity-center/) (free)
-- [AWS Secret Manager](https://aws.amazon.com/secrets-manager/)
+- [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/pricing/)
+- [AWS CloudTrail](https://aws.amazon.com/cloudtrail/pricing/)
+- [AWS IAM Identity Center](https://aws.amazon.com/iam/identity-center/) (no additional charge)
+- [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/pricing/)
 
-## Managing CloudTrail Lake cost 
+## Managing audit cost
 
-TEAM uses [AWS CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake.html) for querying, auditing and logging API activities and actions performed by a user during the period of elevated access. For CloudTrail Lake, you pay for ingestion and storage together, where the billing is based on the amount of uncompressed data ingested during the month. When you run queries in Lake, you pay based upon the amount of data scanned. 
+CloudWatch telemetry rules deliver CloudTrail management events to managed source log groups in each configured account and Region. A centralization rule copies matching events to the TEAM account, where the application runs CloudWatch Logs Insights queries.
 
-TEAM CloudTrail lake event datastore records all [management events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html) and no [data events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html) by default. Depending on your organization's auditing and compliance requirement, you can chose to either log all events or specific events (read-only, write, read-write, management, data events). Recording only specific events can help to reduce the overall cost of running the TEAM solution. For more information about managing CloudTrail lake costs, see [Managing CloudTrail Lake costs](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html).
+Relevant cost dimensions include:
+
+- CloudTrail event ingestion into source CloudWatch log groups.
+- One day of source-account storage by default.
+- Seven days of centralized storage by default.
+- Centralization copies.
+- Data scanned by each Logs Insights query.
+- Lambda, AppSync, and DynamoDB operations used by the asynchronous query workflow.
+
+TEAM collects read and write management events and excludes data, network, and Insights events in the default audit stack. Expanding to data events can significantly increase event volume and must be evaluated separately.
+
+To control cost:
+
+- Configure only Regions that contain workloads TEAM must audit.
+- Keep query windows bounded to the canonical TEAM request.
+- Reuse one completed query per request for five days.
+- Use active-session refresh only when newer events are required.
+- Adjust source and central retention according to organizational audit requirements.
+- Monitor CloudWatch Logs Insights bytes scanned and query concurrency during the pilot.

@@ -294,20 +294,12 @@ export const onCreateRequests = /* GraphQL */ `
   }
 `;
 export const onUpdateSessions = /* GraphQL */ `
-  subscription OnUpdateSessions($id: String) {
-    onUpdateSessions(id: $id) {
-      id
-      startTime
-      endTime
-      username
-      accountId
-      role
-      approver_ids
-      queryId
+  subscription OnUpdateSessions($requestId: ID!) {
+    onUpdateSessions(requestId: $requestId) {
+      requestId
+      status
+      errorCode
       expireAt
-      createdAt
-      updatedAt
-      owner
       __typename
     }
   }

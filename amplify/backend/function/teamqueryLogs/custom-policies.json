@@ -1,7 +1,1 @@
-[
-  {
-    "Action": [
-      "cloudtrail:GetQueryResults"],
-    "Resource": ["*"]
-  }
-]
+[]

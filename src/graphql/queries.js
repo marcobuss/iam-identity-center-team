@@ -221,52 +221,6 @@ export const requestByStatus = /* GraphQL */ `
     }
   }
 `;
-export const getSessions = /* GraphQL */ `
-  query GetSessions($id: ID!) {
-    getSessions(id: $id) {
-      id
-      startTime
-      endTime
-      username
-      accountId
-      role
-      approver_ids
-      queryId
-      expireAt
-      createdAt
-      updatedAt
-      owner
-      __typename
-    }
-  }
-`;
-export const listSessions = /* GraphQL */ `
-  query ListSessions(
-    $filter: ModelSessionsFilterInput
-    $limit: Int
-    $nextToken: String
-  ) {
-    listSessions(filter: $filter, limit: $limit, nextToken: $nextToken) {
-      items {
-        id
-        startTime
-        endTime
-        username
-        accountId
-        role
-        approver_ids
-        queryId
-        expireAt
-        createdAt
-        updatedAt
-        owner
-        __typename
-      }
-      nextToken
-      __typename
-    }
-  }
-`;
 export const getApprovers = /* GraphQL */ `
   query GetApprovers($id: ID!) {
     getApprovers(id: $id) {
@@ -498,13 +452,21 @@ export const getUsers = /* GraphQL */ `
     }
   }
 `;
-export const getLogs = /* GraphQL */ `
-  query GetLogs($queryId: String) {
-    getLogs(queryId: $queryId) {
-      eventName
-      eventSource
-      eventID
-      eventTime
+export const sessionActivity = /* GraphQL */ `
+  query SessionActivity($requestId: ID!, $nextToken: String) {
+    sessionActivity(requestId: $requestId, nextToken: $nextToken) {
+      requestId
+      status
+      events {
+        eventName
+        eventSource
+        eventID
+        eventTime
+        __typename
+      }
+      nextToken
+      errorCode
+      potentiallyTruncated
       __typename
     }
   }

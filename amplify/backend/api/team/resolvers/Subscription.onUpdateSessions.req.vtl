@@ -1,0 +1,9 @@
+## Restrict query-state notifications to TEAM Auditors. Requesters and approvers use polling.
+#if(!$ctx.identity || !$ctx.identity.claims)
+  $util.unauthorized()
+#end
+#set($groups = $util.defaultIfNull($ctx.identity.claims.get("cognito:groups"), []))
+#if(!$groups.contains("Auditors"))
+  $util.unauthorized()
+#end
+$util.toJson({"version":"2018-05-29","payload":{}})

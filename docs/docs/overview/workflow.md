@@ -86,6 +86,5 @@ You can view request details and session activity logs for current and historica
 - Approvers can inspect elevated access and session activity logs that fall within the scope of what they are authorized to approve.
 - Auditors can inspect all elevated access and session activity logs globally
 
-TEAM assumes that the permission set session duration is configured as the default 1 hour.
-To accommodate for possible lag between elevated access expiry and the configured permission set session duration, session activities are logged for all actions performed within the elevated access duration plus an additional 1 hour.
+For this release, the session activity query ends at TEAM's recorded access end time. Active credentials might remain valid beyond this point, but events generated afterward are not included in that request's activity panel.
 {: .note}

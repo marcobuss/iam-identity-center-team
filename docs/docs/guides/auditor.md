@@ -31,8 +31,10 @@ As an auditor, you have access to inspect the request approval/rejection history
   2. In the left-hand menu go to *Audit* &rarr; *Elevated access*.
   3. Tick the session you are interested in and click *View details*.
   4. Review the details of the session.
-  5. Click on *Session logs* to access review the sessions logs. Use the search bar if necessary.
-  6. If required click *Download* to download a CSV file with all logs for the session.
+  5. Click *Session logs* to start or reuse the server-authorized CloudWatch activity query. The panel distinguishes a completed query with no events from a failed or timed-out query.
+  6. Results are loaded in pages of up to 1,000 events. If required, click *Download* to retrieve all available pages and generate a CSV file in the browser.
+
+CloudWatch Logs Insights returns at most 100,000 events for one TEAM activity query. When that limit is reached, TEAM marks the displayed results and CSV as potentially truncated.
 
 ### Audit approvals and session logs demo
 {: .no_toc}

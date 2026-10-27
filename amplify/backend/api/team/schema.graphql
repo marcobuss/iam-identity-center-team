@@ -107,16 +107,10 @@ type requests
   )
   session_duration: String
 }
+# This model provisions server-owned query state. Browsers use the custom
+# start, result, and subscription operations below; no model CRUD resolver is exposed.
 type sessions
-  @model(subscriptions: { level: off })
-  @auth(
-    rules: [
-      { allow: groups, groups: ["Auditors"]}
-      { allow: owner }
-      { allow: owner, ownerField: "username"}
-      { allow: owner, ownerField: "approver_ids"}
-    ]
-  ) {
+  @model(subscriptions: null, queries: null, mutations: null) {
   id: String!
   startTime: String
   endTime: String
@@ -124,6 +118,13 @@ type sessions
   accountId: String
   role: String
   approver_ids: [String]
+  owner: String
+  status: AuditQueryStatus
+  errorCode: String
+  generation: Int
+  requestedAt: AWSDateTime
+  queryStartedAt: AWSDateTime
+  queryCompletedAt: AWSDateTime
   queryId: String
   expireAt: AWSTimestamp @ttl
 }
@@ -262,7 +263,41 @@ type Users {
   UserName: String!
   UserId: String!
 }
-type Logs {
+enum AuditQueryStatus {
+  QUEUED
+  STARTING
+  RUNNING
+  COMPLETE
+  FAILED
+  CANCELLED
+  TIMEOUT
+  UNKNOWN
+}
+
+type AuditQueryState @aws_iam @aws_cognito_user_pools {
+  requestId: ID!
+  status: AuditQueryStatus!
+  errorCode: String
+  expireAt: AWSTimestamp
+}
+
+input AuditQueryStateInput {
+  requestId: ID!
+  status: AuditQueryStatus!
+  errorCode: String
+  expireAt: AWSTimestamp
+}
+
+type AuditLogPage @aws_iam @aws_cognito_user_pools {
+  requestId: ID!
+  status: AuditQueryStatus!
+  events: [Logs!]!
+  nextToken: String
+  errorCode: String
+  potentiallyTruncated: Boolean!
+}
+
+type Logs @aws_iam @aws_cognito_user_pools {
   eventName: String
   eventSource: String
   eventID: String
@@ -337,6 +372,14 @@ type Mutation {
   validateRequest(accountId: String!, roleId: String!, userId: String!, groupIds: [String]!): RequestValidationResult
   @function(name: "teamvalidateRequest-${env}")
   @auth(rules: [{ allow: private }])
+  startSessionActivityQuery(requestId: ID!): AuditQueryState!
+  @function(name: "teamstartLogs-${env}")
+  @auth(rules: [{ allow: private }])
+  refreshSessionActivityQuery(requestId: ID!): AuditQueryState!
+  @function(name: "teamstartLogs-${env}")
+  @auth(rules: [{ allow: private }])
+  publishSessionActivityState(result: AuditQueryStateInput!): AuditQueryState
+  @aws_iam
 }
 
 type Subscription {
@@ -346,9 +389,9 @@ type Subscription {
   onCreateRequests: requests
     @aws_subscribe(mutations: ["createRequests"])
     @auth(rules: [{ allow: private }])
-  onUpdateSessions(id: String): sessions
-    @aws_subscribe(mutations: ["updateSessions"])
-    @auth(rules: [{ allow: private }])
+  onUpdateSessions(requestId: ID!): AuditQueryState
+    @aws_subscribe(mutations: ["publishSessionActivityState"])
+    @auth(rules: [{ allow: groups, groups: ["Auditors"] }])
   onPublishPolicy: Policy
     @aws_subscribe(mutations: ["publishPolicy"])
     @auth(rules: [{ allow: private }])
@@ -381,9 +424,10 @@ type Query {
   getUsers: [Users]
     @function(name: "teamgetUsers-${env}")
     @auth(rules: [{ allow: private }])
-  getLogs(
-    queryId: String
-  ): [Logs]
+  sessionActivity(
+    requestId: ID!
+    nextToken: String
+  ): AuditLogPage!
     @function(name: "teamqueryLogs-${env}")
     @auth(rules: [{ allow: private }])
   getUserPolicy(

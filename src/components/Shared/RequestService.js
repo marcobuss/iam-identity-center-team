@@ -9,9 +9,8 @@ import {
   getApprovers,
   listRequests,
   getRequests,
-  getSessions,
   listApprovers,
-  getLogs,
+  sessionActivity,
   getOUs,
   getOU,
   requestByEmailAndStatus,
@@ -27,8 +26,8 @@ import {
 } from "../../graphql/queries";
 import {
   createRequests,
-  createSessions,
-  deleteSessions,
+  startSessionActivityQuery,
+  refreshSessionActivityQuery,
   updateRequests,
   createApprovers,
   deleteApprovers,
@@ -262,14 +261,11 @@ export async function getPendingRequests(userEmail) {
   });
 }
 
-export async function fetchLogs(args) {
-  try {
-    const logs = await API.graphql(graphqlOperation(getLogs, args));
-    const data = await logs.data.getLogs;
-    return data;
-  } catch (err) {
-    console.log("error fetching logs");
-  }
+export async function fetchSessionActivity(requestId, nextToken = null) {
+  const response = await API.graphql(
+    graphqlOperation(sessionActivity, { requestId, nextToken })
+  );
+  return response.data.sessionActivity;
 }
 
 export async function fetchPolicy(args) {
@@ -305,40 +301,18 @@ export async function requestTeam(data) {
     console.log("error creating request");
   }
 }
-export async function getSessionLogs(data) {
-  try {
-    const req = await API.graphql(
-      graphqlOperation(createSessions, { input: data })
-    );
-    return req.data.createSessions.id;
-  } catch (err) {
-    console.log("error creating session Logs");
-  }
+export async function startSessionActivity(requestId) {
+  const response = await API.graphql(
+    graphqlOperation(startSessionActivityQuery, { requestId })
+  );
+  return response.data.startSessionActivityQuery;
 }
 
-export async function deleteSessionLogs(data) {
-  try {
-    const req = await API.graphql(
-      graphqlOperation(deleteSessions, { input: data })
-    );
-    return req.data.deleteSessions;
-  } catch (err) {
-    console.log("error deleting session log");
-  }
-}
-
-export async function getSession(id) {
-  try {
-    const request = await API.graphql(
-      graphqlOperation(getSessions, {
-        id: id,
-      })
-    );
-    const data = await request.data.getSessions;
-    return data;
-  } catch (err) {
-    console.log("error fetching session log");
-  }
+export async function refreshSessionActivity(requestId) {
+  const response = await API.graphql(
+    graphqlOperation(refreshSessionActivityQuery, { requestId })
+  );
+  return response.data.refreshSessionActivityQuery;
 }
 
 export async function addApprovers(data) {

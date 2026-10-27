@@ -1,11 +1,11 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "An auto-generated nested stack.",
+  "Description": "Custom AppSync resources for TEAM",
   "Metadata": {},
   "Parameters": {
     "AppSyncApiId": {
       "Type": "String",
-      "Description": "The id of the AppSync API associated with this project."
+      "Description": "The ID of the AppSync API associated with this project"
     },
     "AppSyncApiName": {
       "Type": "String",
@@ -14,45 +14,47 @@
     },
     "env": {
       "Type": "String",
-      "Description": "The environment name. e.g. Dev, Test, or Production",
+      "Description": "The Amplify environment name",
       "Default": "NONE"
     },
     "S3DeploymentBucket": {
       "Type": "String",
-      "Description": "The S3 bucket containing all deployment assets for the project."
+      "Description": "The S3 bucket containing deployment assets"
     },
     "S3DeploymentRootKey": {
       "Type": "String",
-      "Description": "An S3 key relative to the S3DeploymentBucket that points to the root\nof the deployment directory."
+      "Description": "The deployment asset key prefix"
     }
   },
   "Resources": {
-    "EmptyResource": {
-      "Type": "Custom::EmptyResource",
-      "Condition": "AlwaysFalse"
+    "SessionActivityStateDataSource": {
+      "Type": "AWS::AppSync::DataSource",
+      "Properties": {
+        "ApiId": { "Ref": "AppSyncApiId" },
+        "Name": "SessionActivityStateNoneDataSource",
+        "Type": "NONE"
+      }
+    },
+    "PublishSessionActivityStateResolver": {
+      "Type": "AWS::AppSync::Resolver",
+      "Properties": {
+        "ApiId": { "Ref": "AppSyncApiId" },
+        "TypeName": "Mutation",
+        "FieldName": "publishSessionActivityState",
+        "DataSourceName": { "Fn::GetAtt": ["SessionActivityStateDataSource", "Name"] },
+        "RequestMappingTemplate": "#if($util.authType() != \"IAM Authorization\")\n$util.unauthorized()\n#end\n$util.toJson({\"version\":\"2018-05-29\",\"payload\":$ctx.args.result})",
+        "ResponseMappingTemplate": "$util.toJson($ctx.result)"
+      }
     }
   },
   "Conditions": {
     "HasEnvironmentParameter": {
-      "Fn::Not": [
-        {
-          "Fn::Equals": [
-            {
-              "Ref": "env"
-            },
-            "NONE"
-          ]
-        }
-      ]
-    },
-    "AlwaysFalse": {
-      "Fn::Equals": ["true", "false"]
+      "Fn::Not": [{ "Fn::Equals": [{ "Ref": "env" }, "NONE"] }]
     }
   },
   "Outputs": {
-    "EmptyOutput": {
-      "Description": "An empty output. You may delete this if you have at least one resource above.",
-      "Value": ""
+    "SessionActivityStateResolverName": {
+      "Value": { "Ref": "PublishSessionActivityStateResolver" }
     }
   }
 }

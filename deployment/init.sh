@@ -1,78 +1,72 @@
-# Copyright 2022 Amazon Web Services, Inc
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# This script should be deployed in the Organisation Management account
-# The script enables delegated admin for AWS Account Management, AWS IAM IdC and CloudTrail Lake
-
 #!/usr/bin/env bash
-set +e
+# Configures TEAM delegated administration for a fresh CloudWatch-backed deployment.
+# The default mode is read-only; pass --apply for organization-level changes.
+set -euo pipefail
 
-. "./parameters.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PARAMETERS_FILE="${SCRIPT_DIR}/parameters.sh"
+APPLY=false
 
-export AWS_PROFILE=$ORG_MASTER_PROFILE
+if [[ "${1:-}" == "--apply" ]]; then
+  APPLY=true
+elif [[ -n "${1:-}" ]]; then
+  echo "Usage: $0 [--apply]" >&2
+  exit 2
+fi
 
-idc=`aws organizations list-delegated-administrators --service-principal sso.amazonaws.com --region $REGION --output json | jq -r '.DelegatedAdministrators[] | select(.Id=='\"$TEAM_ACCOUNT\"') | .Id'`
-cloudtrail=`aws organizations list-delegated-administrators --service-principal cloudtrail.amazonaws.com --region $REGION --output json | jq -r '.DelegatedAdministrators[] | select(.Id=='\"$TEAM_ACCOUNT\"') | .Id'`
-accountManager=`aws organizations list-delegated-administrators --service-principal account.amazonaws.com --region $REGION --output json | jq -r '.DelegatedAdministrators[] | select(.Id=='\"$TEAM_ACCOUNT\"') | .Id'`
-serviceRole=`aws iam get-role --role-name AWSServiceRoleForCloudTrail --region $REGION `
+if [[ ! -f "${PARAMETERS_FILE}" ]]; then
+  echo "Missing ${PARAMETERS_FILE}; create it from deployment/parameters-template.sh." >&2
+  exit 1
+fi
 
-# Enable trusted access for account management
-aws organizations enable-aws-service-access --service-principal account.amazonaws.com --region $REGION
+# shellcheck source=/dev/null
+source "${PARAMETERS_FILE}"
 
-# Enable Delegated Admin for Account Management
-if [ -z "$accountManager" ]
-then
-    aws organizations register-delegated-administrator \
-        --account-id $TEAM_ACCOUNT \
-        --service-principal account.amazonaws.com \
-        --region $REGION
+: "${ORG_MANAGEMENT_PROFILE:?ORG_MANAGEMENT_PROFILE is required}"
+: "${TEAM_ACCOUNT:?TEAM_ACCOUNT is required}"
+: "${REGION:?REGION is required}"
 
-    echo "$TEAM_ACCOUNT configured as delegated Admin for AWS Account Manager"
+is_delegated_administrator() {
+  local service_principal="$1"
+  aws organizations list-delegated-administrators \
+    --profile "${ORG_MANAGEMENT_PROFILE}" \
+    --service-principal "${service_principal}" \
+    --query "DelegatedAdministrators[?Id=='${TEAM_ACCOUNT}'] | length(@)" \
+    --output text
+}
+
+ensure_delegated_administrator() {
+  local service_principal="$1"
+  local service_label="$2"
+
+  if [[ "$(is_delegated_administrator "${service_principal}")" == "1" ]]; then
+    echo "${service_label} delegated administrator is configured."
+    return
+  fi
+
+  if [[ "${APPLY}" == "false" ]]; then
+    echo "${service_label} delegated administrator is not configured."
+    return
+  fi
+
+  aws organizations enable-aws-service-access \
+    --profile "${ORG_MANAGEMENT_PROFILE}" \
+    --service-principal "${service_principal}"
+  aws organizations register-delegated-administrator \
+    --profile "${ORG_MANAGEMENT_PROFILE}" \
+    --account-id "${TEAM_ACCOUNT}" \
+    --service-principal "${service_principal}"
+  echo "${service_label} delegated administrator was configured."
+}
+
+ensure_delegated_administrator "account.amazonaws.com" "Account Management"
+ensure_delegated_administrator "sso.amazonaws.com" "IAM Identity Center"
+
+if [[ "${APPLY}" == "true" ]]; then
+  "${SCRIPT_DIR}/cloudwatch-audit/bootstrap.sh" --apply
 else
-    echo "$TEAM_ACCOUNT is already configured as delegated Admin for AWS Account Manager"
+  "${SCRIPT_DIR}/cloudwatch-audit/bootstrap.sh"
 fi
 
-# Enable trusted access for cloudtrail
-aws organizations enable-aws-service-access --service-principal cloudtrail.amazonaws.com --region $REGION
-
-if [ -z "$serviceRole" ]; then
-    aws iam create-service-linked-role --aws-service-name cloudtrail.amazonaws.com --region $REGION 
-fi
-
-# Enable Delegated Admin for CloudTrail
-if [ -z "$cloudtrail" ]
-then
-    aws organizations register-delegated-administrator \
-        --account-id $TEAM_ACCOUNT \
-        --service-principal cloudtrail.amazonaws.com\
-        --region $REGION
-    echo "$TEAM_ACCOUNT configured as delegated Admin for cloudtrail"
-else
-    echo "$TEAM_ACCOUNT is already configured as delegated Admin for cloudtrail"
-fi
-
-# Enable trusted access for IdC
-aws organizations enable-aws-service-access --service-principal sso.amazonaws.com  --region $REGION
-
-# Enable Delegated Admin for IdC
-if [ -z "$idc" ]
-then
-aws organizations register-delegated-administrator \
-    --account-id $TEAM_ACCOUNT \
-    --service-principal sso.amazonaws.com \
-    --region $REGION
-    echo "$TEAM_ACCOUNT configured as delegated Admin for IAM IdC"
-else
-    echo "$TEAM_ACCOUNT is already configured as delegated Admin for IAM IdC"
-fi
+# CloudTrail Lake delegated administration is intentionally not changed. Existing
+# Lake deployments can continue running in parallel during the pilot.

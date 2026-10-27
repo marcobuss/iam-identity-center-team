@@ -106,68 +106,24 @@ export const deleteRequests = /* GraphQL */ `
     }
   }
 `;
-export const createSessions = /* GraphQL */ `
-  mutation CreateSessions(
-    $input: CreateSessionsInput!
-    $condition: ModelSessionsConditionInput
-  ) {
-    createSessions(input: $input, condition: $condition) {
-      id
-      startTime
-      endTime
-      username
-      accountId
-      role
-      approver_ids
-      queryId
+export const startSessionActivityQuery = /* GraphQL */ `
+  mutation StartSessionActivityQuery($requestId: ID!) {
+    startSessionActivityQuery(requestId: $requestId) {
+      requestId
+      status
+      errorCode
       expireAt
-      createdAt
-      updatedAt
-      owner
       __typename
     }
   }
 `;
-export const updateSessions = /* GraphQL */ `
-  mutation UpdateSessions(
-    $input: UpdateSessionsInput!
-    $condition: ModelSessionsConditionInput
-  ) {
-    updateSessions(input: $input, condition: $condition) {
-      id
-      startTime
-      endTime
-      username
-      accountId
-      role
-      approver_ids
-      queryId
+export const refreshSessionActivityQuery = /* GraphQL */ `
+  mutation RefreshSessionActivityQuery($requestId: ID!) {
+    refreshSessionActivityQuery(requestId: $requestId) {
+      requestId
+      status
+      errorCode
       expireAt
-      createdAt
-      updatedAt
-      owner
-      __typename
-    }
-  }
-`;
-export const deleteSessions = /* GraphQL */ `
-  mutation DeleteSessions(
-    $input: DeleteSessionsInput!
-    $condition: ModelSessionsConditionInput
-  ) {
-    deleteSessions(input: $input, condition: $condition) {
-      id
-      startTime
-      endTime
-      username
-      accountId
-      role
-      approver_ids
-      queryId
-      expireAt
-      createdAt
-      updatedAt
-      owner
       __typename
     }
   }

@@ -201,10 +201,9 @@ export const schema = {
                 {
                     "type": "key",
                     "properties": {
-                        "name": "byApproverAndStatus",
-                        "queryField": "requestByApproverAndStatus",
+                        "name": "byStatus",
+                        "queryField": "requestByStatus",
                         "fields": [
-                            "approverId",
                             "status"
                         ]
                     }
@@ -212,9 +211,10 @@ export const schema = {
                 {
                     "type": "key",
                     "properties": {
-                        "name": "byStatus",
-                        "queryField": "requestByStatus",
+                        "name": "byApproverAndStatus",
+                        "queryField": "requestByApproverAndStatus",
                         "fields": [
+                            "approverId",
                             "status"
                         ]
                     }
@@ -252,14 +252,6 @@ export const schema = {
                                     "read"
                                 ],
                                 "identityClaim": "cognito:username"
-                            },
-                            {
-                                "allow": "private",
-                                "provider": "iam",
-                                "operations": [
-                                    "read",
-                                    "update"
-                                ]
                             }
                         ]
                     }
@@ -319,6 +311,57 @@ export const schema = {
                     "attributes": [],
                     "isArrayNullable": true
                 },
+                "owner": {
+                    "name": "owner",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "status": {
+                    "name": "status",
+                    "isArray": false,
+                    "type": {
+                        "enum": "AuditQueryStatus"
+                    },
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "errorCode": {
+                    "name": "errorCode",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "generation": {
+                    "name": "generation",
+                    "isArray": false,
+                    "type": "Int",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "requestedAt": {
+                    "name": "requestedAt",
+                    "isArray": false,
+                    "type": "AWSDateTime",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "queryStartedAt": {
+                    "name": "queryStartedAt",
+                    "isArray": false,
+                    "type": "AWSDateTime",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "queryCompletedAt": {
+                    "name": "queryCompletedAt",
+                    "isArray": false,
+                    "type": "AWSDateTime",
+                    "isRequired": false,
+                    "attributes": []
+                },
                 "queryId": {
                     "name": "queryId",
                     "isArray": false,
@@ -356,74 +399,9 @@ export const schema = {
                 {
                     "type": "model",
                     "properties": {
-                        "subscriptions": {
-                            "level": "off"
-                        }
-                    }
-                },
-                {
-                    "type": "auth",
-                    "properties": {
-                        "rules": [
-                            {
-                                "groupClaim": "cognito:groups",
-                                "provider": "userPools",
-                                "allow": "groups",
-                                "groups": [
-                                    "Auditors"
-                                ],
-                                "operations": [
-                                    "create",
-                                    "update",
-                                    "delete",
-                                    "read"
-                                ]
-                            },
-                            {
-                                "provider": "userPools",
-                                "ownerField": "owner",
-                                "allow": "owner",
-                                "identityClaim": "cognito:username",
-                                "operations": [
-                                    "create",
-                                    "update",
-                                    "delete",
-                                    "read"
-                                ]
-                            },
-                            {
-                                "provider": "userPools",
-                                "ownerField": "username",
-                                "allow": "owner",
-                                "identityClaim": "cognito:username",
-                                "operations": [
-                                    "create",
-                                    "update",
-                                    "delete",
-                                    "read"
-                                ]
-                            },
-                            {
-                                "provider": "userPools",
-                                "ownerField": "approver_ids",
-                                "allow": "owner",
-                                "identityClaim": "cognito:username",
-                                "operations": [
-                                    "create",
-                                    "update",
-                                    "delete",
-                                    "read"
-                                ]
-                            },
-                            {
-                                "allow": "private",
-                                "provider": "iam",
-                                "operations": [
-                                    "read",
-                                    "update"
-                                ]
-                            }
-                        ]
+                        "subscriptions": null,
+                        "queries": null,
+                        "mutations": null
                     }
                 }
             ]
@@ -543,14 +521,6 @@ export const schema = {
                                 "operations": [
                                     "read"
                                 ]
-                            },
-                            {
-                                "allow": "private",
-                                "provider": "iam",
-                                "operations": [
-                                    "read",
-                                    "update"
-                                ]
                             }
                         ]
                     }
@@ -669,6 +639,13 @@ export const schema = {
                     "name": "teamAuditorGroup",
                     "isArray": false,
                     "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "useOUCache": {
+                    "name": "useOUCache",
+                    "isArray": false,
+                    "type": "Boolean",
                     "isRequired": false,
                     "attributes": []
                 },
@@ -882,22 +859,111 @@ export const schema = {
                                 "operations": [
                                     "read"
                                 ]
-                            },
-                            {
-                                "allow": "private",
-                                "provider": "iam",
-                                "operations": [
-                                    "read",
-                                    "update"
-                                ]
                             }
+                        ]
+                    }
+                }
+            ]
+        },
+        "OUAccountsCache": {
+            "name": "OUAccountsCache",
+            "fields": {
+                "id": {
+                    "name": "id",
+                    "isArray": false,
+                    "type": "ID",
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "ou_id": {
+                    "name": "ou_id",
+                    "isArray": false,
+                    "type": "ID",
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "accounts": {
+                    "name": "accounts",
+                    "isArray": false,
+                    "type": "AWSJSON",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "cached_at": {
+                    "name": "cached_at",
+                    "isArray": false,
+                    "type": "AWSTimestamp",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "ttl": {
+                    "name": "ttl",
+                    "isArray": false,
+                    "type": "AWSTimestamp",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "status": {
+                    "name": "status",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "createdAt": {
+                    "name": "createdAt",
+                    "isArray": false,
+                    "type": "AWSDateTime",
+                    "isRequired": false,
+                    "attributes": [],
+                    "isReadOnly": true
+                },
+                "updatedAt": {
+                    "name": "updatedAt",
+                    "isArray": false,
+                    "type": "AWSDateTime",
+                    "isRequired": false,
+                    "attributes": [],
+                    "isReadOnly": true
+                }
+            },
+            "syncable": true,
+            "pluralName": "OUAccountsCaches",
+            "attributes": [
+                {
+                    "type": "model",
+                    "properties": {
+                        "subscriptions": null,
+                        "queries": null,
+                        "mutations": null
+                    }
+                },
+                {
+                    "type": "key",
+                    "properties": {
+                        "fields": [
+                            "ou_id"
                         ]
                     }
                 }
             ]
         }
     },
-    "enums": {},
+    "enums": {
+        "AuditQueryStatus": {
+            "name": "AuditQueryStatus",
+            "values": [
+                "QUEUED",
+                "STARTING",
+                "RUNNING",
+                "COMPLETE",
+                "FAILED",
+                "CANCELLED",
+                "TIMEOUT",
+                "UNKNOWN"
+            ]
+        }
+    },
     "nonModels": {
         "data": {
             "name": "data",
@@ -933,6 +999,97 @@ export const schema = {
                     "isArray": false,
                     "type": "String",
                     "isRequired": true,
+                    "attributes": []
+                }
+            }
+        },
+        "OUAccounts": {
+            "name": "OUAccounts",
+            "fields": {
+                "ouId": {
+                    "name": "ouId",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "accounts": {
+                    "name": "accounts",
+                    "isArray": true,
+                    "type": {
+                        "nonModel": "Accounts"
+                    },
+                    "isRequired": false,
+                    "attributes": [],
+                    "isArrayNullable": true
+                },
+                "cached": {
+                    "name": "cached",
+                    "isArray": false,
+                    "type": "Boolean",
+                    "isRequired": false,
+                    "attributes": []
+                }
+            }
+        },
+        "OUAccountsBatch": {
+            "name": "OUAccountsBatch",
+            "fields": {
+                "results": {
+                    "name": "results",
+                    "isArray": true,
+                    "type": {
+                        "nonModel": "OUAccounts"
+                    },
+                    "isRequired": false,
+                    "attributes": [],
+                    "isArrayNullable": true
+                }
+            }
+        },
+        "InvalidateCacheResult": {
+            "name": "InvalidateCacheResult",
+            "fields": {
+                "invalidated": {
+                    "name": "invalidated",
+                    "isArray": true,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": [],
+                    "isArrayNullable": true
+                },
+                "failed": {
+                    "name": "failed",
+                    "isArray": true,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": [],
+                    "isArrayNullable": true
+                },
+                "message": {
+                    "name": "message",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                }
+            }
+        },
+        "RequestValidationResult": {
+            "name": "RequestValidationResult",
+            "fields": {
+                "valid": {
+                    "name": "valid",
+                    "isArray": false,
+                    "type": "Boolean",
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "reason": {
+                    "name": "reason",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
                     "attributes": []
                 }
             }
@@ -1009,6 +1166,93 @@ export const schema = {
                     "name": "UserId",
                     "isArray": false,
                     "type": "String",
+                    "isRequired": true,
+                    "attributes": []
+                }
+            }
+        },
+        "AuditQueryState": {
+            "name": "AuditQueryState",
+            "fields": {
+                "requestId": {
+                    "name": "requestId",
+                    "isArray": false,
+                    "type": "ID",
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "status": {
+                    "name": "status",
+                    "isArray": false,
+                    "type": {
+                        "enum": "AuditQueryStatus"
+                    },
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "errorCode": {
+                    "name": "errorCode",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "expireAt": {
+                    "name": "expireAt",
+                    "isArray": false,
+                    "type": "AWSTimestamp",
+                    "isRequired": false,
+                    "attributes": []
+                }
+            }
+        },
+        "AuditLogPage": {
+            "name": "AuditLogPage",
+            "fields": {
+                "requestId": {
+                    "name": "requestId",
+                    "isArray": false,
+                    "type": "ID",
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "status": {
+                    "name": "status",
+                    "isArray": false,
+                    "type": {
+                        "enum": "AuditQueryStatus"
+                    },
+                    "isRequired": true,
+                    "attributes": []
+                },
+                "events": {
+                    "name": "events",
+                    "isArray": true,
+                    "type": {
+                        "nonModel": "Logs"
+                    },
+                    "isRequired": true,
+                    "attributes": [],
+                    "isArrayNullable": false
+                },
+                "nextToken": {
+                    "name": "nextToken",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "errorCode": {
+                    "name": "errorCode",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": false,
+                    "attributes": []
+                },
+                "potentiallyTruncated": {
+                    "name": "potentiallyTruncated",
+                    "isArray": false,
+                    "type": "Boolean",
                     "isRequired": true,
                     "attributes": []
                 }
@@ -1158,6 +1402,13 @@ export const schema = {
                     "isRequired": false,
                     "attributes": [],
                     "isArrayNullable": true
+                },
+                "username": {
+                    "name": "username",
+                    "isArray": false,
+                    "type": "String",
+                    "isRequired": true,
+                    "attributes": []
                 }
             }
         },
@@ -1197,5 +1448,5 @@ export const schema = {
         }
     },
     "codegenVersion": "3.4.4",
-    "version": "fc07e42e84b950bb45581d50e1b5438e"
+    "version": "11bd649004c11cbe769afb8b3d229bdf"
 };

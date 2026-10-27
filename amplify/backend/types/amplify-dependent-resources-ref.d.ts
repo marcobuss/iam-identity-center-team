@@ -23,9 +23,6 @@ export type AmplifyDependentResourcesAttributes = {
     }
   },
   "custom": {
-    "cloudtrailLake": {
-      "EventDataStoreOutput": "string"
-    },
     "sns": {
       "NotificationTopicArn": "string"
     },
@@ -81,6 +78,13 @@ export type AmplifyDependentResourcesAttributes = {
       "Region": "string"
     },
     "teamStatus": {
+      "Arn": "string",
+      "LambdaExecutionRole": "string",
+      "LambdaExecutionRoleArn": "string",
+      "Name": "string",
+      "Region": "string"
+    },
+    "teamstartLogs": {
       "Arn": "string",
       "LambdaExecutionRole": "string",
       "LambdaExecutionRoleArn": "string",

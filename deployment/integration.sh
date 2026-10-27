@@ -1,50 +1,33 @@
-# Copyright 2022 Amazon Web Services, Inc
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License 
-
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 #!/usr/bin/env bash
+# Prints IAM Identity Center integration values for the namespaced TEAM pilot.
+set -euo pipefail
 
-. "./parameters.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/parameters.sh"
 
-if [ -z "$TEAM_ACCOUNT" ]; then 
-  export AWS_PROFILE=$ORG_MASTER_PROFILE
-else 
-  export AWS_PROFILE=$TEAM_ACCOUNT_PROFILE
+NAMESPACE="${TEAM_DEPLOYMENT_NAMESPACE:-cloudwatch}"
+APP_NAME="TEAM-IDC-APP-${NAMESPACE}"
+BRANCH_NAME="${NAMESPACE}"
+PROFILE="${TEAM_ACCOUNT_PROFILE:-${ORG_MANAGEMENT_PROFILE:?deployment profile is required}}"
+
+app_id="$(aws amplify list-apps --profile "${PROFILE}" --region "${REGION}" --query "apps[?name=='${APP_NAME}'].appId | [0]" --output text)"
+default_domain="$(aws amplify get-app --profile "${PROFILE}" --region "${REGION}" --app-id "${app_id}" --query 'app.defaultDomain' --output text)"
+user_pool_id="$(aws cognito-idp list-user-pools --profile "${PROFILE}" --region "${REGION}" --max-results 60 --query "UserPools[?contains(Name, '${NAMESPACE}') && contains(Name, 'team06dbb7fc')].Id | [0]" --output text)"
+user_pool_domain="$(aws cognito-idp describe-user-pool --profile "${PROFILE}" --region "${REGION}" --user-pool-id "${user_pool_id}" --query 'UserPool.Domain' --output text)"
+web_client_id="$(aws cognito-idp list-user-pool-clients --profile "${PROFILE}" --region "${REGION}" --user-pool-id "${user_pool_id}" --query "UserPoolClients[?contains(ClientName, 'clientWeb')].ClientId | [0]" --output text)"
+
+application_domain="${BRANCH_NAME}.${default_domain}"
+custom_domain="$(aws amplify list-domain-associations --profile "${PROFILE}" --region "${REGION}" --app-id "${app_id}" --query 'domainAssociations[0].domainName' --output text 2>/dev/null || true)"
+if [[ -n "${custom_domain}" && "${custom_domain}" != "None" ]]; then
+  custom_prefix="$(aws amplify list-domain-associations --profile "${PROFILE}" --region "${REGION}" --app-id "${app_id}" --query "domainAssociations[0].subDomains[?subDomainSetting.branchName=='${BRANCH_NAME}'].subDomainSetting.prefix | [0]" --output text)"
+  application_domain="${custom_domain}"
+  if [[ -n "${custom_prefix}" && "${custom_prefix}" != "None" ]]; then
+    application_domain="${custom_prefix}.${custom_domain}"
+  fi
 fi
 
-green='\033[0;32m'
-clear='\033[0m'
-cognitoUserpoolId=`aws cognito-idp list-user-pools --region $REGION --max-results 10 --output json | jq -r '.UserPools[] | select(.Name | contains("team06dbb7fc")) | .Id'`
-cognitouserpoolhostedUIdomain=`aws cognito-idp describe-user-pool --region $REGION --user-pool-id $cognitoUserpoolId --output json | jq -r '.UserPool.Domain'`
-cognitoClientWebClientID=`aws cognito-idp list-user-pool-clients --region $REGION --user-pool-id $cognitoUserpoolId --output json | jq -r '.UserPoolClients[] | select(.ClientName | contains("clientWeb")) | .ClientId'`
-cognitoHostedUIdomain=$cognitouserpoolhostedUIdomain.auth.$REGION.amazoncognito.com
-
-amplifyAppId=`aws amplify list-apps --region $REGION --output json | jq -r '.apps[] | select(.name=="TEAM-IDC-APP") | .appId'`
-amplifyDomain=`aws amplify list-apps --region $REGION --output json | jq -r '.apps[] | select(.name=="TEAM-IDC-APP") | .defaultDomain'`
-amplifyDomain="main.$amplifyDomain"
-
-amplifyCustomDomains=`aws amplify list-domain-associations --region $REGION --app-id $amplifyAppId --output json`
-amplifyCustomDomain=`echo $amplifyCustomDomains | jq -r 'select(.domainAssociations | length > 0) | .domainAssociations[0].domainName'`
-
-if [ -n "$amplifyCustomDomain" ]; then
-  amplifyCustomDomainPrefix=$(echo $amplifyCustomDomains | jq -r 'select(.domainAssociations | length > 0) | .domainAssociations[0].subDomains[] | select(.subDomainSetting.branchName=="main") | .subDomainSetting.prefix')
-  amplifyDomain=$([ -z "$amplifyCustomDomainPrefix" ] && echo $amplifyCustomDomain || echo $amplifyCustomDomainPrefix.$amplifyCustomDomain)
-fi
-
-echo $amplifyDomain
-applicationStartURL="https://$cognitoHostedUIdomain/authorize?client_id=$cognitoClientWebClientID&response_type=code&scope=aws.cognito.signin.user.admin+email+openid+phone+profile&redirect_uri=https://$amplifyDomain/&idp_identifier=team"
-applicationACSURL="https://$cognitoHostedUIdomain/saml2/idpresponse"
-applicationSAMLAudience="urn:amazon:cognito:sp:$cognitoUserpoolId"
-
-printf "\n${green}applicationStartURL:${clear} %s\n${green}applicationACSURL:${clear} %s\n${green}applicationSAMLAudience:${clear} %s\n\n" "$applicationStartURL" "$applicationACSURL" "$applicationSAMLAudience"
+hosted_ui_domain="${user_pool_domain}.auth.${REGION}.amazoncognito.com"
+echo "application_start_url=https://${hosted_ui_domain}/authorize?client_id=${web_client_id}&response_type=code&scope=aws.cognito.signin.user.admin+email+openid+phone+profile&redirect_uri=https://${application_domain}/&idp_identifier=team"
+echo "application_acs_url=https://${hosted_ui_domain}/saml2/idpresponse"
+echo "application_saml_audience=urn:amazon:cognito:sp:${user_pool_id}"

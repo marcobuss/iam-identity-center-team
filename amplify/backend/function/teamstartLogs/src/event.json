@@ -1,0 +1,15 @@
+{
+  "arguments": {
+    "requestId": "11111111-1111-4111-8111-111111111111"
+  },
+  "identity": {
+    "username": "idc_user@example.com",
+    "claims": {
+      "userId": "identity-store-user-id",
+      "cognito:groups": []
+    }
+  },
+  "info": {
+    "fieldName": "startSessionActivityQuery"
+  }
+}

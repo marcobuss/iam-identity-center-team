@@ -48,8 +48,13 @@ In the case of TEAM, you can enforce the required TLS versions and cipher suites
 Furthermore, the TEAM solution does not enable WAF on the AppSync api endpoint by default. You can use AWS WAF to protect your AppSync API from common web exploits, such as SQL injection and cross-site scripting (XSS) attacks. Be aware that this could affect API availability and performance, compromise security, or consume excessive resources. For example, you can use rate-based rules to specify the number of web requests that are allowed by each client IP in a trailing, continuously updated, 5-minute period.  [ For further details, see Using AWS WAF to protect your APIs.](https://docs.aws.amazon.com/appsync/latest/devguide/WAF-Integration.html)
 
 ## Audit logs
-TEAM uses [AWS CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake.html) for querying, auditing and logging API activities and actions performed by a user during the period of elevated access.
-TEAM CloudTrail lake event datastore records all [management events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-management-events-with-cloudtrail.html) and no [data events](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html) by default. Depending on your organization's auditing and compliance requirement, consider updating the TEAM CloudTrail lake event data store configuration to either log all events or specific events (read-only, write, read-write, management, data events).
+TEAM collects CloudTrail management events through CloudWatch telemetry enablement rules and service-linked channels. CloudWatch Logs centralization copies the selected source-Region events into a private log group in the TEAM account. The application queries that group with CloudWatch Logs Insights.
+
+The default configuration records read and write management events and excludes data, network, and Insights events. Consequently, the activity panel does not represent data-plane operations such as S3 object access unless the audit infrastructure is deliberately extended. Expanding event coverage can materially increase ingestion, storage, and query costs.
+
+Audit queries are built from the canonical TEAM request on the server. Requesters can view their own activity, assigned approvers can view requests in their scope, and members of the TEAM Auditor group can view all requests. The browser does not receive the CloudWatch query identifier or select the account, role, identity, log group, or time window.
+
+For ended requests, this release stops the audit window at TEAM's recorded end time. Credentials issued before assignment removal can remain valid afterward, and activity performed with those credentials is intentionally outside the displayed window.
 
 ## Amplify S3 bucket access logging
 AWS Amplify creates an s3 bucket for storing artifacts for deploying the TEAM application. 

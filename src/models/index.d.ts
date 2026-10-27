@@ -2,6 +2,17 @@ import { ModelInit, MutableModel } from "@aws-amplify/datastore";
 // @ts-ignore
 import { LazyLoading, LazyLoadingDisabled } from "@aws-amplify/datastore";
 
+export enum AuditQueryStatus {
+  QUEUED = "QUEUED",
+  STARTING = "STARTING",
+  RUNNING = "RUNNING",
+  COMPLETE = "COMPLETE",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
+  TIMEOUT = "TIMEOUT",
+  UNKNOWN = "UNKNOWN"
+}
+
 type Eagerdata = {
   readonly name?: string | null;
   readonly id?: string | null;
@@ -29,6 +40,64 @@ type LazyAccounts = {
 export declare type Accounts = LazyLoading extends LazyLoadingDisabled ? EagerAccounts : LazyAccounts
 
 export declare const Accounts: (new (init: ModelInit<Accounts>) => Accounts)
+
+type EagerOUAccounts = {
+  readonly ouId: string;
+  readonly accounts?: (Accounts | null)[] | null;
+  readonly cached?: boolean | null;
+}
+
+type LazyOUAccounts = {
+  readonly ouId: string;
+  readonly accounts?: (Accounts | null)[] | null;
+  readonly cached?: boolean | null;
+}
+
+export declare type OUAccounts = LazyLoading extends LazyLoadingDisabled ? EagerOUAccounts : LazyOUAccounts
+
+export declare const OUAccounts: (new (init: ModelInit<OUAccounts>) => OUAccounts)
+
+type EagerOUAccountsBatch = {
+  readonly results?: (OUAccounts | null)[] | null;
+}
+
+type LazyOUAccountsBatch = {
+  readonly results?: (OUAccounts | null)[] | null;
+}
+
+export declare type OUAccountsBatch = LazyLoading extends LazyLoadingDisabled ? EagerOUAccountsBatch : LazyOUAccountsBatch
+
+export declare const OUAccountsBatch: (new (init: ModelInit<OUAccountsBatch>) => OUAccountsBatch)
+
+type EagerInvalidateCacheResult = {
+  readonly invalidated?: (string | null)[] | null;
+  readonly failed?: (string | null)[] | null;
+  readonly message?: string | null;
+}
+
+type LazyInvalidateCacheResult = {
+  readonly invalidated?: (string | null)[] | null;
+  readonly failed?: (string | null)[] | null;
+  readonly message?: string | null;
+}
+
+export declare type InvalidateCacheResult = LazyLoading extends LazyLoadingDisabled ? EagerInvalidateCacheResult : LazyInvalidateCacheResult
+
+export declare const InvalidateCacheResult: (new (init: ModelInit<InvalidateCacheResult>) => InvalidateCacheResult)
+
+type EagerRequestValidationResult = {
+  readonly valid: boolean;
+  readonly reason?: string | null;
+}
+
+type LazyRequestValidationResult = {
+  readonly valid: boolean;
+  readonly reason?: string | null;
+}
+
+export declare type RequestValidationResult = LazyLoading extends LazyLoadingDisabled ? EagerRequestValidationResult : LazyRequestValidationResult
+
+export declare const RequestValidationResult: (new (init: ModelInit<RequestValidationResult>) => RequestValidationResult)
 
 type EagerEntitlement = {
   readonly accounts?: (data | null)[] | null;
@@ -75,6 +144,46 @@ type LazyUsers = {
 export declare type Users = LazyLoading extends LazyLoadingDisabled ? EagerUsers : LazyUsers
 
 export declare const Users: (new (init: ModelInit<Users>) => Users)
+
+type EagerAuditQueryState = {
+  readonly requestId: string;
+  readonly status: AuditQueryStatus | keyof typeof AuditQueryStatus;
+  readonly errorCode?: string | null;
+  readonly expireAt?: number | null;
+}
+
+type LazyAuditQueryState = {
+  readonly requestId: string;
+  readonly status: AuditQueryStatus | keyof typeof AuditQueryStatus;
+  readonly errorCode?: string | null;
+  readonly expireAt?: number | null;
+}
+
+export declare type AuditQueryState = LazyLoading extends LazyLoadingDisabled ? EagerAuditQueryState : LazyAuditQueryState
+
+export declare const AuditQueryState: (new (init: ModelInit<AuditQueryState>) => AuditQueryState)
+
+type EagerAuditLogPage = {
+  readonly requestId: string;
+  readonly status: AuditQueryStatus | keyof typeof AuditQueryStatus;
+  readonly events: Logs[];
+  readonly nextToken?: string | null;
+  readonly errorCode?: string | null;
+  readonly potentiallyTruncated: boolean;
+}
+
+type LazyAuditLogPage = {
+  readonly requestId: string;
+  readonly status: AuditQueryStatus | keyof typeof AuditQueryStatus;
+  readonly events: Logs[];
+  readonly nextToken?: string | null;
+  readonly errorCode?: string | null;
+  readonly potentiallyTruncated: boolean;
+}
+
+export declare type AuditLogPage = LazyLoading extends LazyLoadingDisabled ? EagerAuditLogPage : LazyAuditLogPage
+
+export declare const AuditLogPage: (new (init: ModelInit<AuditLogPage>) => AuditLogPage)
 
 type EagerLogs = {
   readonly eventName?: string | null;
@@ -165,11 +274,13 @@ export declare const MgmtPs: (new (init: ModelInit<MgmtPs>) => MgmtPs)
 type EagerPolicy = {
   readonly id: string;
   readonly policy?: (Entitlement | null)[] | null;
+  readonly username: string;
 }
 
 type LazyPolicy = {
   readonly id: string;
   readonly policy?: (Entitlement | null)[] | null;
+  readonly username: string;
 }
 
 export declare type Policy = LazyLoading extends LazyLoadingDisabled ? EagerPolicy : LazyPolicy
@@ -219,6 +330,10 @@ type SettingsMetaData = {
 }
 
 type EligibilityMetaData = {
+  readOnlyFields: 'createdAt' | 'updatedAt';
+}
+
+type OUAccountsCacheMetaData = {
   readOnlyFields: 'createdAt' | 'updatedAt';
 }
 
@@ -290,6 +405,13 @@ type Eagersessions = {
   readonly accountId?: string | null;
   readonly role?: string | null;
   readonly approver_ids?: (string | null)[] | null;
+  readonly owner?: string | null;
+  readonly status?: AuditQueryStatus | keyof typeof AuditQueryStatus | null;
+  readonly errorCode?: string | null;
+  readonly generation?: number | null;
+  readonly requestedAt?: string | null;
+  readonly queryStartedAt?: string | null;
+  readonly queryCompletedAt?: string | null;
   readonly queryId?: string | null;
   readonly expireAt?: number | null;
   readonly createdAt?: string | null;
@@ -304,6 +426,13 @@ type Lazysessions = {
   readonly accountId?: string | null;
   readonly role?: string | null;
   readonly approver_ids?: (string | null)[] | null;
+  readonly owner?: string | null;
+  readonly status?: AuditQueryStatus | keyof typeof AuditQueryStatus | null;
+  readonly errorCode?: string | null;
+  readonly generation?: number | null;
+  readonly requestedAt?: string | null;
+  readonly queryStartedAt?: string | null;
+  readonly queryCompletedAt?: string | null;
   readonly queryId?: string | null;
   readonly expireAt?: number | null;
   readonly createdAt?: string | null;
@@ -363,6 +492,7 @@ type EagerSettings = {
   readonly slackToken?: string | null;
   readonly teamAdminGroup?: string | null;
   readonly teamAuditorGroup?: string | null;
+  readonly useOUCache?: boolean | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
@@ -384,6 +514,7 @@ type LazySettings = {
   readonly slackToken?: string | null;
   readonly teamAdminGroup?: string | null;
   readonly teamAuditorGroup?: string | null;
+  readonly useOUCache?: boolean | null;
   readonly createdAt?: string | null;
   readonly updatedAt?: string | null;
 }
@@ -428,4 +559,32 @@ export declare type Eligibility = LazyLoading extends LazyLoadingDisabled ? Eage
 
 export declare const Eligibility: (new (init: ModelInit<Eligibility, EligibilityMetaData>) => Eligibility) & {
   copyOf(source: Eligibility, mutator: (draft: MutableModel<Eligibility, EligibilityMetaData>) => MutableModel<Eligibility, EligibilityMetaData> | void): Eligibility;
+}
+
+type EagerOUAccountsCache = {
+  readonly id: string;
+  readonly ou_id: string;
+  readonly accounts?: string | null;
+  readonly cached_at?: number | null;
+  readonly ttl?: number | null;
+  readonly status?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+type LazyOUAccountsCache = {
+  readonly id: string;
+  readonly ou_id: string;
+  readonly accounts?: string | null;
+  readonly cached_at?: number | null;
+  readonly ttl?: number | null;
+  readonly status?: string | null;
+  readonly createdAt?: string | null;
+  readonly updatedAt?: string | null;
+}
+
+export declare type OUAccountsCache = LazyLoading extends LazyLoadingDisabled ? EagerOUAccountsCache : LazyOUAccountsCache
+
+export declare const OUAccountsCache: (new (init: ModelInit<OUAccountsCache, OUAccountsCacheMetaData>) => OUAccountsCache) & {
+  copyOf(source: OUAccountsCache, mutator: (draft: MutableModel<OUAccountsCache, OUAccountsCacheMetaData>) => MutableModel<OUAccountsCache, OUAccountsCacheMetaData> | void): OUAccountsCache;
 }

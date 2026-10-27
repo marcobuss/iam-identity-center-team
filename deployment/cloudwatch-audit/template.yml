@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Independent CloudWatch audit infrastructure for TEAM session activity
+
+Parameters:
+  OrganizationId:
+    Type: String
+    Description: AWS Organizations organization ID to include in the audit scope
+    AllowedPattern: '^o-[a-z0-9]{10,32}$'
+
+  SourceRegions:
+    Type: CommaDelimitedList
+    Description: Regions from which CloudTrail management events are centralized
+
+  SourceRetentionDays:
+    Type: Number
+    Description: Retention for managed CloudTrail source log groups
+    Default: 1
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
+
+  CentralRetentionDays:
+    Type: Number
+    Description: Retention for the centralized TEAM audit log group
+    Default: 7
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
+
+  CentralLogGroupName:
+    Type: String
+    Description: Static destination log group used by the TEAM application
+    Default: /aws/team/cloudtrail-management
+    AllowedPattern: '^[.\-_/#A-Za-z0-9]{1,512}$'
+
+  CentralKmsKeyArn:
+    Type: String
+    Description: Optional existing KMS key ARN for the centralized log group
+    Default: ""
+    AllowedPattern: '^$|^arn:aws[a-zA-Z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/(mrk-)?[a-f0-9-]+$'
+
+Conditions:
+  UseCustomerManagedKmsKey: !Not [!Equals [!Ref CentralKmsKeyArn, ""]]
+
+Resources:
+  CentralAuditLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Ref CentralLogGroupName
+      LogGroupClass: STANDARD
+      RetentionInDays: !Ref CentralRetentionDays
+      DeletionProtectionEnabled: true
+      KmsKeyId: !If
+        - UseCustomerManagedKmsKey
+        - !Ref CentralKmsKeyArn
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Application
+          Value: TEAM
+        - Key: Purpose
+          Value: SessionAudit
+
+  CentralizationRule:
+    Type: AWS::ObservabilityAdmin::OrganizationCentralizationRule
+    Properties:
+      RuleName: team-cloudtrail-centralization
+      Rule:
+        Source:
+          Regions: !Ref SourceRegions
+          Scope: !Sub "OrganizationId = '${OrganizationId}'"
+          SourceLogsConfiguration:
+            LogGroupSelectionCriteria: "LogGroupName LIKE 'aws/cloudtrail/%'"
+            EncryptedLogGroupStrategy: SKIP
+        Destination:
+          Account: !Ref AWS::AccountId
+          Region: !Ref AWS::Region
+          DestinationLogsConfiguration:
+            LogGroupNameConfiguration:
+              LogGroupNamePattern: !Ref CentralLogGroupName
+            LogsEncryptionConfiguration: !If
+              - UseCustomerManagedKmsKey
+              - EncryptionStrategy: CUSTOMER_MANAGED
+                KmsKeyArn: !Ref CentralKmsKeyArn
+                EncryptionConflictResolutionStrategy: SKIP
+                EncryptionScope: NEW_DESTINATION_LOG_GROUPS
+              - EncryptionStrategy: AWS_OWNED
+      Tags:
+        - Key: Application
+          Value: TEAM
+
+  CloudTrailTelemetryRule:
+    Type: AWS::ObservabilityAdmin::OrganizationTelemetryRule
+    DependsOn: CentralizationRule
+    Properties:
+      RuleName: team-cloudtrail-management-events
+      Rule:
+        ResourceType: AWS::CloudTrail
+        TelemetryType: Logs
+        Scope: !Sub "OrganizationId = '${OrganizationId}'"
+        Regions: !Ref SourceRegions
+        DestinationConfiguration:
+          DestinationType: cloud-watch-logs
+          RetentionInDays: !Ref SourceRetentionDays
+          CloudtrailParameters:
+            AdvancedEventSelectors:
+              - Name: TEAM management events
+                FieldSelectors:
+                  - Field: eventCategory
+                    Equals:
+                      - Management
+      Tags:
+        - Key: Application
+          Value: TEAM
+
+  AuditLogGroupArnParameter:
+    Type: AWS::SSM::Parameter
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: /team/audit/log-group-arn
+      Type: String
+      Description: CloudWatch Logs group ARN used by TEAM session activity queries
+      Value: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CentralAuditLogGroup}'
+      Tags:
+        Application: TEAM
+
+  AuditRegionParameter:
+    Type: AWS::SSM::Parameter
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: /team/audit/region
+      Type: String
+      Description: Region used by TEAM session activity queries
+      Value: !Ref AWS::Region
+      Tags:
+        Application: TEAM
+
+Outputs:
+  AuditLogGroupName:
+    Description: Central TEAM audit log group name
+    Value: !Ref CentralAuditLogGroup
+
+  AuditLogGroupArn:
+    Description: Central TEAM audit log group ARN without a wildcard suffix
+    Value: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CentralAuditLogGroup}'
+
+  AuditRegion:
+    Description: Central TEAM audit Region
+    Value: !Ref AWS::Region
+
+  AuditLogGroupArnParameterName:
+    Value: !Ref AuditLogGroupArnParameter
+
+  AuditRegionParameterName:
+    Value: !Ref AuditRegionParameter

@@ -9,7 +9,19 @@ parent: Solution overview
 
 Temporary elevated access management (TEAM) solution is a full stack, Single Page Application (SPA) that is based on React JS and powered by AWS serverless services.
 
-<img src="https://d3f99z5n3ls8r1.cloudfront.net/images/architecture/archi.png" alt="Solution components">
+```mermaid
+flowchart LR
+  Users["TEAM users"] --> UI["Amplify React application"]
+  UI --> API["AWS AppSync"]
+  API --> State["DynamoDB request and query state"]
+  State --> Workflow["Lambda and Step Functions access workflow"]
+  Workflow --> IdC["IAM Identity Center"]
+  CloudTrail["CloudTrail management events"] --> SourceLogs["Managed CloudWatch source log groups"]
+  SourceLogs --> Centralization["CloudWatch organization centralization"]
+  Centralization --> AuditLogs["Private central TEAM log group"]
+  API --> Query["Authorized audit-query Lambdas"]
+  Query --> AuditLogs
+```
 
 ## Solution components
 
@@ -19,7 +31,7 @@ TEAM consists of the following components:
 - [DynamoDB](https://aws.amazon.com/dynamodb/) datastore for storing TEAM request, eligibility and approval state.
 - [AWS Lambda](https://aws.amazon.com/lambda/) backed middleware component that contains logic for routing TEAM elevated access requests to the orchestration layer.
 - [AWS Step Functions](https://aws.amazon.com/step-functions/) orchestration workflow component that automates the process of notification, granting and removal of elevated access.
-- Auditing and visibility component powered by [AWS CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake.html) for veiwing elevated access session activity logs.
+- Auditing and visibility powered by CloudTrail service-linked channels and [Amazon CloudWatch Logs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html) for viewing elevated-access session management events.
 - Security component backed by [Amazon Cognito](https://aws.amazon.com/cognito/) for managing group and user based authentication and application authorization.
 
 The TEAM application is built, deployed and hosted on [AWS Amplify](https://aws.amazon.com/amplify/).
@@ -31,7 +43,7 @@ The following DynamoDB tables are deployed as part of the solution:
 - **Requests Table** - Stores information about TEAM requests, approval and elevated access status
 - **Approver Table** - Stores details of Approver groups for accounts and Organizational Units
 - **Eligibility Table** - Stores data relating to accounts, permission sets or roles an entity (user or group) is eligible to request access to
-- **Session Table** - An ephemeral datastore that stores and manages the state of an [AWS CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake.html) query. This helps to provide asynchronous Pub/Sub API for retrieving session activity logs
+- **Session Table** - An ephemeral datastore containing server-owned CloudWatch Logs Insights query state. A request, its query status, and its internal query identifier are correlated here so that asynchronous results can be retrieved without exposing query credentials to the browser.
 - **Settings Table** - Stores configurable values of TEAM application wide settings such as mandatory fields, default timeouts, maximum duration, approval settings, and OU cache behavior
 - **OU Accounts Cache Table** - Caches AWS accounts for organizational units to improve eligibility policy loading performance. Cache entries expire based on the configured TTL (default: 1 week). Administrators can toggle between cached and direct API queries, or manually invalidate specific OU cache entries via the Settings page
 

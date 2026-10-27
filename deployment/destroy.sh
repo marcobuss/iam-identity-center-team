@@ -1,33 +1,30 @@
-# Copyright 2023 Amazon Web Services, Inc
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 #!/usr/bin/env bash
+# Deletes only a specifically confirmed namespaced TEAM application stack.
+# The independent audit stack and any Lake deployment are intentionally untouched.
+set -euo pipefail
 
-. "./parameters.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/parameters.sh"
 
-if [ -z "$TEAM_ACCOUNT" ]; then 
-  export AWS_PROFILE=$ORG_MASTER_PROFILE
-else 
-  export AWS_PROFILE=$TEAM_ACCOUNT_PROFILE
+NAMESPACE="${TEAM_DEPLOYMENT_NAMESPACE:-cloudwatch}"
+APP_NAME="TEAM-IDC-APP-${NAMESPACE}"
+BRANCH_NAME="${NAMESPACE}"
+REPOSITORY_NAME="team-idc-app-${NAMESPACE}"
+PROFILE="${TEAM_ACCOUNT_PROFILE:-${ORG_MANAGEMENT_PROFILE:?deployment profile is required}}"
+
+if [[ "${1:-}" != "--apply" || "${2:-}" != "${APP_NAME}" ]]; then
+  echo "Usage: $0 --apply ${APP_NAME}" >&2
+  echo "The independent audit stack is retained and must be managed separately." >&2
+  exit 2
 fi
 
-appId=`aws amplify list-apps --region $REGION --output json | jq -r '.apps[] | select(.name=="TEAM-IDC-APP") | .appId' `
-stackName=`aws amplify get-backend-environment --region $REGION --app-id $appId --environment-name main --output json | jq -r '.backendEnvironment | .stackName'`
+app_id="$(aws amplify list-apps --profile "${PROFILE}" --region "${REGION}" --query "apps[?name=='${APP_NAME}'].appId | [0]" --output text)"
+backend_stack="$(aws amplify get-backend-environment --profile "${PROFILE}" --region "${REGION}" --app-id "${app_id}" --environment-name "${BRANCH_NAME}" --query 'backendEnvironment.stackName' --output text)"
 
-aws cloudformation delete-stack --region $REGION --stack-name $stackName
+aws cloudformation delete-stack --profile "${PROFILE}" --region "${REGION}" --stack-name "${backend_stack}"
+aws cloudformation delete-stack --profile "${PROFILE}" --region "${REGION}" --stack-name "${APP_NAME}"
 
-aws cloudformation delete-stack --region $REGION --stack-name TEAM-IDC-APP
-
-if [ -z "$SECRET_NAME" ]; then
-  aws codecommit delete-repository --region $REGION \--repository-name team-idc-app
+if [[ -z "${SECRET_NAME:-}" ]]; then
+  aws codecommit delete-repository --profile "${PROFILE}" --region "${REGION}" --repository-name "${REPOSITORY_NAME}" >/dev/null
 fi
