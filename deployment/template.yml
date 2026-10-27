@@ -85,6 +85,23 @@ Resources:
       Path: /
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/AdministratorAccess-Amplify"
+      Policies:
+        - PolicyName: AmplifyTeamNotificationTopicDeployment
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ManageNamespacedTeamNotificationTopic
+                Effect: Allow
+                Action:
+                  - sns:CreateTopic
+                  - sns:DeleteTopic
+                  - sns:GetDataProtectionPolicy
+                  - sns:GetTopicAttributes
+                  - sns:ListTagsForResource
+                  - sns:SetTopicAttributes
+                  - sns:TagResource
+                  - sns:UntagResource
+                Resource: !Sub "arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:TeamNotifications-${DeploymentNamespace}"
 
   AmplifyApp:
     Type: "AWS::Amplify::App"
