@@ -24,7 +24,7 @@ function Home(props) {
           <Button
             className="homebutton"
             variant="primary"
-            onClick={() => Auth.federatedSignIn()}
+            onClick={() => Auth.federatedSignIn({ customProvider: "IDC" })}
           >
             Federated Sign In
           </Button>
