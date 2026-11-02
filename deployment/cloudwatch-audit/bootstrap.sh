@@ -25,7 +25,12 @@ source "${PARAMETERS_FILE}"
 : "${ORG_MANAGEMENT_PROFILE:?ORG_MANAGEMENT_PROFILE is required}"
 : "${TEAM_ACCOUNT:?TEAM_ACCOUNT is required}"
 : "${REGION:?REGION is required}"
-: "${AUDIT_SOURCE_REGIONS:?AUDIT_SOURCE_REGIONS is required as a comma-separated list}"
+: "${ORGANIZATION_TRAIL_HOME_REGION:?ORGANIZATION_TRAIL_HOME_REGION is required}"
+
+if [[ "${ORGANIZATION_TRAIL_HOME_REGION}" != "${REGION}" ]]; then
+  echo "ORGANIZATION_TRAIL_HOME_REGION must match REGION for this installation." >&2
+  exit 1
+fi
 
 SERVICE_PRINCIPAL="observabilityadmin.amazonaws.com"
 POLL_SECONDS="${TELEMETRY_EVALUATION_POLL_SECONDS:-15}"
@@ -67,27 +72,9 @@ inspect_configuration() {
 }
 
 start_telemetry_evaluation() {
-  local -a requested_regions=()
-  local -a additional_regions=()
-  IFS=',' read -r -a requested_regions <<< "${AUDIT_SOURCE_REGIONS}"
-
-  for source_region in "${requested_regions[@]}"; do
-    source_region="${source_region//[[:space:]]/}"
-    if [[ -n "${source_region}" && "${source_region}" != "${REGION}" ]]; then
-      additional_regions+=("${source_region}")
-    fi
-  done
-
-  if [[ "${#additional_regions[@]}" -gt 0 ]]; then
-    aws observabilityadmin start-telemetry-evaluation-for-organization \
-      --profile "${ORG_MANAGEMENT_PROFILE}" \
-      --region "${REGION}" \
-      --regions "${additional_regions[@]}"
-  else
-    aws observabilityadmin start-telemetry-evaluation-for-organization \
-      --profile "${ORG_MANAGEMENT_PROFILE}" \
-      --region "${REGION}"
-  fi
+  aws observabilityadmin start-telemetry-evaluation-for-organization \
+    --profile "${ORG_MANAGEMENT_PROFILE}" \
+    --region "${REGION}"
 }
 
 wait_for_telemetry_evaluation() {

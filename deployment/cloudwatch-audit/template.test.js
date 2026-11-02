@@ -27,9 +27,10 @@ test("telemetry rule captures only management events", () => {
   assert.doesNotMatch(template, /eventCategory[\s\S]{0,100}- NetworkActivity/);
 });
 
-test("centralization is created before ingestion and targets CloudTrail groups", () => {
+test("centralization is created before ingestion and targets the configured source groups", () => {
   assert.match(template, /CloudTrailTelemetryRule:[\s\S]*DependsOn: CentralizationRule/);
-  assert.match(template, /LogGroupSelectionCriteria: "LogGroupName LIKE 'aws\/cloudtrail\/%'"/);
+  assert.match(template, /OrganizationTrailHomeRegion/);
+  assert.match(template, /LogGroupSelectionCriteria: !Ref CentralizationSourceLogGroupSelectionCriteria/);
   assert.match(template, /SourceRetentionDays:[\s\S]*Default: 1/);
 });
 

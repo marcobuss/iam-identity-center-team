@@ -7,9 +7,15 @@ Parameters:
     Description: AWS Organizations organization ID to include in the audit scope
     AllowedPattern: '^o-[a-z0-9]{10,32}$'
 
-  SourceRegions:
-    Type: CommaDelimitedList
-    Description: Regions from which CloudTrail management events are centralized
+  OrganizationTrailHomeRegion:
+    Type: String
+    Description: Home Region of the multi-Region organization trail and its CloudWatch Logs source group
+    AllowedPattern: '^[a-z]{2}(-[a-z]+)+-[0-9]+$'
+
+  CentralizationSourceLogGroupSelectionCriteria:
+    Type: String
+    Description: CloudWatch Logs selection criteria for source groups copied to TEAM
+    Default: "LogGroupName LIKE 'aws/cloudtrail/%'"
 
   SourceRetentionDays:
     Type: Number
@@ -64,10 +70,11 @@ Resources:
       RuleName: team-cloudtrail-centralization
       Rule:
         Source:
-          Regions: !Ref SourceRegions
+          Regions:
+            - !Ref OrganizationTrailHomeRegion
           Scope: !Sub "OrganizationId = '${OrganizationId}'"
           SourceLogsConfiguration:
-            LogGroupSelectionCriteria: "LogGroupName LIKE 'aws/cloudtrail/%'"
+            LogGroupSelectionCriteria: !Ref CentralizationSourceLogGroupSelectionCriteria
             EncryptedLogGroupStrategy: ALLOW
         Destination:
           Account: !Ref AWS::AccountId
@@ -95,7 +102,8 @@ Resources:
         ResourceType: AWS::CloudTrail
         TelemetryType: Logs
         Scope: !Sub "OrganizationId = '${OrganizationId}'"
-        Regions: !Ref SourceRegions
+        Regions:
+          - !Ref OrganizationTrailHomeRegion
         DestinationConfiguration:
           DestinationType: cloud-watch-logs
           RetentionInDays: !Ref SourceRetentionDays

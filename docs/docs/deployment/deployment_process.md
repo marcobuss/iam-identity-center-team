@@ -55,7 +55,7 @@ Required application values:
 Required audit-stack values:
 
 - `ORGANIZATION_ID` — AWS Organizations ID.
-- `AUDIT_SOURCE_REGIONS` — Comma-separated Regions to collect and centralize.
+- `ORGANIZATION_TRAIL_HOME_REGION` — The single Region containing the multi-Region organization trail and its CloudWatch Logs source group.
 
 Optional values:
 
