@@ -94,6 +94,32 @@ TEAM_DEPLOYMENT_NAMESPACE=<namespace>
 
 Use a unique namespace for every parallel installation. It names the TEAM application stack, CodeCommit repository, Amplify branch, Cognito environment, and AppSync backend.
 
+### Choose the audit source mode
+
+Set one of these values in `parameters.sh`:
+
+```sh
+# TEAM creates and owns the management-account trail.
+AUDIT_SOURCE_MODE=managed-organization-trail
+
+# Customer keeps ownership of an existing trail.
+AUDIT_SOURCE_MODE=existing-trail
+```
+
+For `existing-trail`, set the existing trail owner, source group, and source Region:
+
+```sh
+EXISTING_TRAIL_NAME=<customer-organization-trail-name>
+EXISTING_TRAIL_OWNER_PROFILE=<local-aws-cli-profile-for-trail-owner>
+EXISTING_TRAIL_OWNER_ACCOUNT_ID=<trail-owner-account-id>
+EXISTING_TRAIL_SOURCE_LOG_GROUP_NAME=<customer-source-log-group-name>
+EXISTING_TRAIL_SOURCE_LOG_GROUP_REGION=<trail-home-region>
+EXISTING_TRAIL_CLOUDWATCH_ROLE_NAME=TEAMExistingTrailCloudWatchLogsDelivery
+
+ORGANIZATION_TRAIL_HOME_REGION=<trail-home-region>
+CENTRALIZATION_SOURCE_LOG_GROUP_SELECTION_CRITERIA="LogGroupName LIKE '<approved-source-prefix>%'"
+```
+
 ## Installation sequence
 
 ### 1. Enable CloudTrail trusted access manually
@@ -149,9 +175,11 @@ This stack is deployed in the TEAM account. It creates:
 
 The TEAM central log group has seven-day retention, deletion protection, and retain policies.
 
-### 4. Deploy the management-account organization trail stack
+### 4. Configure the audit trail source
 
-Create and review the unexecuted change set:
+#### TEAM-managed organization trail
+
+Use this path when TEAM should create the management-account trail. Create and review the unexecuted change set:
 
 ```sh
 ./cloudwatch-audit/deploy-organization-trail.sh
@@ -170,7 +198,29 @@ This stack is deployed in the management account. It creates:
 - A private, versioned S3 archive bucket
 - A management-account CloudTrail-to-CloudWatch Logs delivery role
 
-CloudTrail events created before this trail starts are not backfilled into CloudWatch Logs.
+#### Existing customer trail
+
+Use this path when the customer already owns an organization trail. Do not run `deploy-organization-trail.sh` in `existing-trail` mode.
+
+First inspect the supplied trail without changing it:
+
+```sh
+./cloudwatch-audit/configure-existing-trail.sh
+```
+
+The script verifies the trail owner, organization-trail status, multi-Region status, current CloudWatch Logs configuration, and source group settings.
+
+To let TEAM configure CloudWatch Logs delivery automatically, obtain explicit customer approval for the named trail and run:
+
+```sh
+./cloudwatch-audit/configure-existing-trail.sh --apply
+```
+
+`--apply` creates the declared source log group and CloudTrail delivery role only when absent, applies the declared source retention, updates only the existing trail's `CloudWatchLogsLogGroupArn` and `CloudWatchLogsRoleArn`, then starts logging. It does not change the trail's S3 destination, event selectors, data-event coverage, ownership, or retention.
+
+If the customer configures the trail themselves, they must create a source group in the trail-owner account and the declared source Region, create a CloudTrail delivery role in that same account with `logs:CreateLogStream` and `logs:PutLogEvents` scoped to the source group, configure those two values on the existing trail, and start logging. They then provide the exact source group name and Region in `parameters.sh`. The source group must not use the reserved `aws/` prefix.
+
+For either mode, CloudTrail events created before CloudWatch Logs delivery starts are not backfilled.
 
 ### 5. Deploy the namespaced TEAM application
 

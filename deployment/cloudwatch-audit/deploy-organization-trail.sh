@@ -24,6 +24,18 @@ source "${PARAMETERS_FILE}"
 
 : "${ORG_MANAGEMENT_PROFILE:?ORG_MANAGEMENT_PROFILE is required}"
 : "${REGION:?REGION is required}"
+: "${AUDIT_SOURCE_MODE:?AUDIT_SOURCE_MODE is required}"
+: "${ORGANIZATION_TRAIL_HOME_REGION:?ORGANIZATION_TRAIL_HOME_REGION is required}"
+
+if [[ "${AUDIT_SOURCE_MODE}" != "managed-organization-trail" ]]; then
+  echo "deploy-organization-trail.sh applies only when AUDIT_SOURCE_MODE=managed-organization-trail." >&2
+  exit 1
+fi
+
+if [[ "${ORGANIZATION_TRAIL_HOME_REGION}" != "${REGION}" ]]; then
+  echo "ORGANIZATION_TRAIL_HOME_REGION must match REGION for a managed organization trail." >&2
+  exit 1
+fi
 
 STACK_NAME="${ORGANIZATION_TRAIL_STACK_NAME:-TEAM-ORGANIZATION-AUDIT}"
 SOURCE_LOG_GROUP_NAME="${ORGANIZATION_TRAIL_SOURCE_LOG_GROUP_NAME:-TEAM/CloudTrailManagementEvents}"

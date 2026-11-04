@@ -14,14 +14,28 @@ CACHE_TTL=604800
 
 # Independent CloudWatch audit-stack settings.
 ORGANIZATION_ID=o-example1234
+# Audit source mode: create a TEAM-managed organization trail or use a customer trail.
+AUDIT_SOURCE_MODE=managed-organization-trail
+
+# Common centralization settings.
 ORGANIZATION_TRAIL_HOME_REGION=us-east-1
 AUDIT_SOURCE_RETENTION_DAYS=1
 AUDIT_CENTRAL_RETENTION_DAYS=7
 AUDIT_CENTRAL_KMS_KEY_ARN=
 AUDIT_STACK_NAME=TEAM-CLOUDWATCH-AUDIT
 CENTRALIZATION_SOURCE_LOG_GROUP_SELECTION_CRITERIA="LogGroupName LIKE 'TEAM/CloudTrail%'"
+
+# Used only when AUDIT_SOURCE_MODE=managed-organization-trail.
 ORGANIZATION_TRAIL_STACK_NAME=TEAM-ORGANIZATION-AUDIT
 ORGANIZATION_TRAIL_SOURCE_LOG_GROUP_NAME=TEAM/CloudTrailManagementEvents
+
+# Used only when AUDIT_SOURCE_MODE=existing-trail.
+EXISTING_TRAIL_NAME=
+EXISTING_TRAIL_OWNER_PROFILE=
+EXISTING_TRAIL_OWNER_ACCOUNT_ID=
+EXISTING_TRAIL_SOURCE_LOG_GROUP_NAME=TEAM/CloudTrailManagementEvents
+EXISTING_TRAIL_SOURCE_LOG_GROUP_REGION=us-east-1
+EXISTING_TRAIL_CLOUDWATCH_ROLE_NAME=TEAMExistingTrailCloudWatchLogsDelivery
 
 # The parallel application uses unique stack, repository, branch, and backend names.
 TEAM_DEPLOYMENT_NAMESPACE=cloudwatch
